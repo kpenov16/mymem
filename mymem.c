@@ -36,15 +36,27 @@ static struct node *_next;
 void * alloc_worst(size_t req_size){
 	//void *a;
 	//a = mymalloc(100);
-	
+	return NULL;
+}
 
+void given_block_bigger_than_max_requested_return_null(){
+	void *a;
+	strategies strat = Worst;		
+	initmem(strat,500); //free old mamory if any and alocate new main memory block
+
+	//act
+	a = mymalloc(501);
+
+	//assert
+	assert( a==NULL && "My first unit test in c" );
+    
+	free(_main_mem);
 }
 
 int main(){
-    assert( false && "My first unit test in c" );
-    //assert( true  );
-
+	given_block_bigger_than_max_requested_return_null();
 }
+
 /* initmem must be called prior to mymalloc and myfree.
 
    initmem may be called more than once in a given exeuction;
