@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 void * alloc_worst(size_t requested);
+void given_block_bigger_than_max_requested_return_null();
 
 /* The main structure for implementing memory allocation.
  * You may change this to fit your implementation.
@@ -15,19 +16,22 @@ void * alloc_worst(size_t requested);
 
 struct node
 {
+  int  size;   // How many bytes in this block?
+  bool is_free;        // 1 if this block is allocated,
+                       // 0 if this block is free.
+  
+  void * ptr_start;           // location of block in memory pool.
+ 
   // doubly-linked list
   struct node *prev;
   struct node *next;
-
-  int  bytes_count;   // How many bytes in this block?
-  char is_free;        // 1 if this block is allocated,
-                       // 0 if this block is free.
-  void *data_ptr;           // location of block in memory pool.
 };
 
 strategies _strategy = 0;    // Current strategy 
 
-size_t _main_mem_size;
+size_t _main_mem_size_total;
+//size_t _main_mem_size_free;
+//size_t _main_mem_size_used;
 void * _main_mem = NULL;
 
 static struct node *_head;
@@ -36,7 +40,77 @@ static struct node *_next;
 void * alloc_worst(size_t req_size){
 	//void *a;
 	//a = mymalloc(100);
+/*	struct node mynode;
+	mynode.is_free = false;
+	mynode.size = req_size;
+	struct node * ptr_node = &mynode;
+	memcpy(_main_mem, ptr_node, sizeof(struct node));
+	_head = _main_mem;
+
+	return &mynode;
+*/
 	return NULL;
+}
+
+void given_block_size_eq_max_requested_return_node_max_size(){
+	void *a;
+	strategies strat = Worst;		
+	initmem(strat,500); //free old mamory if any and alocate new main memory block
+
+	//act
+	a = mymalloc(500);
+
+	//assert
+	assert( ((struct node *)a)->is_free == 1 && "My first unit test in c" );
+    
+	free(_main_mem);
+}
+void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
+
+	//struct node *a = malloc(sizeof (struct node *));
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //free old mamory if any and alocate new main memory block
+	
+	//act
+	//a = (struct node *)mymalloc(500);
+
+	//assert
+	//assert( a->is_free == true && "One block is free" );
+    //assert( a->size == block_size && "One block of given size");
+	assert( _head->is_free == true && "One block is free" );
+
+    assert( _head->size == block_size && "One block of given size");
+
+	free(_main_mem);
+	while (_head != NULL){
+		void * tmp = _head;
+		_head = _head->next;
+		free(tmp);
+	}
+	//free(a);
+}
+
+int main(){
+	
+	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
+	//given_block_bigger_than_max_requested_return_null();
+	//given_block_size_eq_max_requested_return_node_max_size();
+}
+
+/* Frees a block of memory previously allocated by mymalloc. */
+void myfree(void* block)
+{
+	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
+
+	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
+	/*while (_head != NULL){
+		void * tmp = _head;
+		_head = _head->next;
+		free(tmp);
+	}*/
+
+	return;
 }
 
 void given_block_bigger_than_max_requested_return_null(){
@@ -52,11 +126,6 @@ void given_block_bigger_than_max_requested_return_null(){
     
 	free(_main_mem);
 }
-
-int main(){
-	given_block_bigger_than_max_requested_return_null();
-}
-
 /* initmem must be called prior to mymalloc and myfree.
 
    initmem may be called more than once in a given exeuction;
@@ -76,18 +145,41 @@ void initmem(strategies strategy, size_t size)
 	_strategy = strategy;
 
 	/* all implementations will need an actual block of memory to use */
-	_main_mem_size = size;
+	_main_mem_size_total = size;
 
 	if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
 
 	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
-
+	while (_head != NULL){
+		void * tmp = _head;
+		_head = _head->next;
+		free(tmp);
+	}
 
 	_main_mem = malloc(size);
 	
+	
 	/* TODO: Initialize memory management structure. */
+		/*
+		struct node
+	{
+	int  offset;   
+	bool is_free;          
+	void * ptr_start; 
+	struct node *prev;
+	struct node *next;
+	};
+	struct node * _main_mem = NULL;
 
+	static struct node *_head;
+	static struct node *_next;
+	*/
 
+	_head = malloc(sizeof(struct node));
+	_head->is_free = true;
+	_head->ptr_start = _main_mem;
+	_head->size = size;
+	_head->next = _next;
 }
 
 /* Allocate a block of memory with the requested size.
@@ -116,11 +208,7 @@ void *mymalloc(size_t requested)
 	return NULL;
 }
 
-/* Frees a block of memory previously allocated by mymalloc. */
-void myfree(void* block)
-{
-	return;
-}
+
 
 /****** Memory status/property functions ******
  * Implement these functions.
@@ -178,7 +266,7 @@ void *mem_pool()
 // Returns the total number of bytes in the memory pool. */
 int mem_total()
 {
-	return _main_mem_size;
+	return _main_mem_size_total;
 }
 
 
