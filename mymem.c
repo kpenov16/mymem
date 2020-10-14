@@ -47,11 +47,15 @@ void free_list_from_head(){
 struct node * _worst_node;
 
 void * alloc_worst(size_t req_size){
-	_worst_node->is_free = false;
-	_worst_node->size = req_size;
-	struct node * tmp = _worst_node;
-	_worst_node = NULL;
-	return tmp;
+	if(_worst_node != NULL){
+		_worst_node->is_free = false;
+		_worst_node->size = req_size;
+		struct node * tmp = _worst_node;
+		_worst_node = NULL;
+		return tmp;
+	}else{
+		return _worst_node;
+	}	
 }
 
 void given_block_size_eq_max_requested_return_node_max_size__OLD__(){
@@ -110,7 +114,26 @@ void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
 	free_list_from_head();
 }
 
+void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+	mymalloc(block_size);       //alocate all
+
+	//act
+	struct node * node_req = (struct node *)mymalloc(10);
+
+	//assert
+	assert( node_req == NULL && "No Memory left - node_req" );
+	assert( _worst_node == NULL && "No Memory left - _worst_node" );
+    
+	free(_main_mem);
+	free_list_from_head();
+}
+
 int main(){
+	givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
 	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
 	//given_block_bigger_than_max_requested_return_null();
