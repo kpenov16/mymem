@@ -37,22 +37,24 @@ void * _main_mem = NULL;
 static struct node *_head;
 static struct node *_next;
 
-void * alloc_worst(size_t req_size){
-	//void *a;
-	//a = mymalloc(100);
-/*	struct node mynode;
-	mynode.is_free = false;
-	mynode.size = req_size;
-	struct node * ptr_node = &mynode;
-	memcpy(_main_mem, ptr_node, sizeof(struct node));
-	_head = _main_mem;
+void free_list_from_head(){
+	while (_head != NULL){
+		void * tmp = _head;
+		_head = _head->next;
+		free(tmp);
+	}
+}
+struct node * _worst_node;
 
-	return &mynode;
-*/
-	return NULL;
+void * alloc_worst(size_t req_size){
+	_worst_node->is_free = false;
+	_worst_node->size = req_size;
+	struct node * tmp = _worst_node;
+	_worst_node = NULL;
+	return tmp;
 }
 
-void given_block_size_eq_max_requested_return_node_max_size(){
+void given_block_size_eq_max_requested_return_node_max_size__OLD__(){
 	void *a;
 	strategies strat = Worst;		
 	initmem(strat,500); //free old mamory if any and alocate new main memory block
@@ -79,20 +81,37 @@ void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
 	//assert( a->is_free == true && "One block is free" );
     //assert( a->size == block_size && "One block of given size");
 	assert( _head->is_free == true && "One block is free" );
-
     assert( _head->size == block_size && "One block of given size");
 
+	assert( _worst_node == _head && "Worst block points to the only free block");
+	assert( _worst_node->is_free == true && "Worst block is free");
+	assert( _worst_node->size == block_size && "Worst block has the same size as the total");
+	assert( _worst_node->ptr_start == _main_mem && "Worst block points to the first location in main memory");
+
 	free(_main_mem);
-	while (_head != NULL){
-		void * tmp = _head;
-		_head = _head->next;
-		free(tmp);
-	}
-	//free(a);
+	free_list_from_head();
+}
+
+void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //free old mamory if any and alocate new main memory block
+	
+	//act
+	struct node * node_req = (struct node *)mymalloc(500);
+
+	//assert
+	assert( node_req->is_free == false && "The block is free" );
+    assert( node_req->size == block_size && "The block is of given size");
+	assert( _worst_node == NULL && "There is now worst node - NULL");
+	
+	free(_main_mem);
+	free_list_from_head();
 }
 
 int main(){
-	
+	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
 	//given_block_bigger_than_max_requested_return_null();
 	//given_block_size_eq_max_requested_return_node_max_size();
@@ -180,6 +199,7 @@ void initmem(strategies strategy, size_t size)
 	_head->ptr_start = _main_mem;
 	_head->size = size;
 	_head->next = _next;
+	_worst_node = _head;
 }
 
 /* Allocate a block of memory with the requested size.
