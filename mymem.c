@@ -58,32 +58,15 @@ void * alloc_worst(size_t req_size){
 	}	
 }
 
-void given_block_size_eq_max_requested_return_node_max_size__OLD__(){
-	void *a;
-	strategies strat = Worst;		
-	initmem(strat,500); //free old mamory if any and alocate new main memory block
-
-	//act
-	a = mymalloc(500);
-
-	//assert
-	assert( ((struct node *)a)->is_free == 1 && "My first unit test in c" );
-    
-	free(_main_mem);
-}
 void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
-
-	//struct node *a = malloc(sizeof (struct node *));
+	//setup
 	strategies strat = Worst;
 	int block_size = 500;		
-	initmem(strat, block_size); //free old mamory if any and alocate new main memory block
 	
 	//act
-	//a = (struct node *)mymalloc(500);
+	initmem(strat, block_size); //free old mamory if any and alocate new main memory block
 
 	//assert
-	//assert( a->is_free == true && "One block is free" );
-    //assert( a->size == block_size && "One block of given size");
 	assert( _head->is_free == true && "One block is free" );
     assert( _head->size == block_size && "One block of given size");
 
@@ -92,6 +75,7 @@ void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
 	assert( _worst_node->size == block_size && "Worst block has the same size as the total");
 	assert( _worst_node->ptr_start == _main_mem && "Worst block points to the first location in main memory");
 
+	//clean
 	free(_main_mem);
 	free_list_from_head();
 }
@@ -110,6 +94,7 @@ void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
     assert( node_req->size == block_size && "The block is of given size");
 	assert( _worst_node == NULL && "There is now worst node - NULL");
 	
+	//clean
 	free(_main_mem);
 	free_list_from_head();
 }
@@ -128,6 +113,7 @@ void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
 	assert( node_req == NULL && "No Memory left - node_req" );
 	assert( _worst_node == NULL && "No Memory left - _worst_node" );
     
+	//clean
 	free(_main_mem);
 	free_list_from_head();
 }
@@ -136,8 +122,6 @@ int main(){
 	givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
 	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
-	//given_block_bigger_than_max_requested_return_null();
-	//given_block_size_eq_max_requested_return_node_max_size();
 }
 
 /* Frees a block of memory previously allocated by mymalloc. */
