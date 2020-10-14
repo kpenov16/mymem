@@ -9,6 +9,7 @@
 
 void * alloc_worst(size_t requested);
 void given_block_bigger_than_max_requested_return_null();
+void clean_up();
 
 /* The main structure for implementing memory allocation.
  * You may change this to fit your implementation.
@@ -16,6 +17,7 @@ void given_block_bigger_than_max_requested_return_null();
 
 struct node
 {
+  int  i;
   int  size;   // How many bytes in this block?
   bool is_free;        // 1 if this block is allocated,
                        // 0 if this block is free.
@@ -64,12 +66,28 @@ void * alloc_worst(size_t req_size){
 		new_node->is_free = false;	
 		new_node->ptr_start = _worst_node->ptr_start;
 		new_node->next = _worst_node;
-		_head = new_node;
+		new_node->prev = _worst_node->prev;
 		
-		_worst_node->prev = new_node;
-		_worst_node->size = _worst_node->size - req_size;
-		_worst_node->ptr_start = _worst_node->ptr_start + req_size;
-	
+		if(_worst_node->prev == NULL){
+			new_node->i = 0; 
+			_worst_node->i = 1;
+			
+			_head = new_node;
+			
+			_worst_node->prev = new_node;
+			_worst_node->size = _worst_node->size - req_size;
+			_worst_node->ptr_start = _worst_node->ptr_start + req_size;
+		}else{
+			new_node->i = new_node->prev->i + 1; 
+			_worst_node->i = new_node->i + 1;
+			
+			_worst_node->prev->next = new_node;
+			_worst_node->prev = new_node;
+
+			_worst_node->size = _worst_node->size - req_size;
+			_worst_node->ptr_start = _worst_node->ptr_start + req_size;
+			//if(_worst_node->size == 0) _worst_node == NULL;
+		}	
 		return new_node;
 	}
 }
@@ -92,8 +110,7 @@ void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
 	assert( _worst_node->ptr_start == _main_mem && "Worst block points to the first location in main memory");
 
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
 void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
@@ -111,8 +128,7 @@ void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
 	assert( _worst_node == NULL && "There is now worst node - NULL");
 	
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
 void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
@@ -130,8 +146,7 @@ void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
 	assert( _worst_node == NULL && "No Memory left - _worst_node" );
     
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
 void givenRequestMoemoryMoreThanAvailable_returnNULL(){
@@ -149,8 +164,7 @@ void givenRequestMoemoryMoreThanAvailable_returnNULL(){
 	assert( _worst_node != NULL && "Memory left but not enough - _worst_node != NULL" );
     
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
 void givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL(){
@@ -172,19 +186,18 @@ void givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL(){
     assert( _worst_node->prev == node_req && "_worst_node->prev == node_req");
 	assert( _worst_node->size == block_size - req_size && "_worst_node->size == block_size - req_size");
     
-
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
 void print_my_list(){
 	printf("\n_memory starts = %p\n", &_main_mem);
 	for(struct node * p = _head; p != NULL; p = p->next)
-		printf("\nnode: is_free = %s, size = %d, ptr_start = %p\n", 
+		printf("\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
 				p->is_free?"true":"false", 
 				p->size,
-				&p->ptr_start);
+				&p->ptr_start,
+				p->i);
 }
 
 void given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory(){
@@ -214,18 +227,62 @@ void given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoF
 	assert( _worst_node == NULL && "_worst_node == NULL");
 	
 	//clean
-	free(_main_mem);
-	free_list_from_head();
+	clean_up();
 }
 
+void given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	//act
+	int req_size01 = 300;
+	int req_size02 = 100;
+	int req_size03 = block_size - req_size01 - req_size02;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01); //request more than available
+	struct node * node_req02 = (struct node *)mymalloc(req_size02);
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	print_my_list();
+	//assert
+	assert( node_req01->size == req_size01 && "node_req01->size == req_size");
+	assert( node_req01->is_free == false && "node_req01->is_free == false");
+	assert( node_req01->next == node_req02 && "node_req01->next == node_req02");
+	assert( node_req01->prev == NULL && "node_req01->prev == NULL");
+	
+	assert( node_req02->size == req_size02 && "node_req02->size == req_size02");
+	assert( node_req02->is_free == false && "node_req02->is_free == false");
+	assert( node_req02->prev == node_req01 && "node_req02->prev == node_req01");
+	assert( node_req02->next == node_req03 && "node_req02->next == node_req03");
+
+	assert( node_req03->size == req_size03 && "node_req03->size == req_size03");
+	assert( node_req03->is_free == false && "node_req03->is_free == false");
+	assert( node_req03->prev == node_req02 && "node_req03->prev == node_req02");
+	assert( node_req03->next == NULL && "node_req03->next == NULL");
+
+	assert( _head == node_req01 && "_head == node_req01");
+	assert( _worst_node == NULL && "_worst_node == NULL");
+	
+	//clean
+	clean_up();
+}
+
+void clean_up(){
+	free(_main_mem);
+	free_list_from_head();
+	_worst_node = NULL;
+	_head = NULL;
+	_main_mem = NULL;
+}
 
 int main(){
-	given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory();
-	givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL();
-	givenRequestMoemoryMoreThanAvailable_returnNULL();
-	givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
-	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
-	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
+	given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory();
+	//given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory();
+	//givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL();
+	//givenRequestMoemoryMoreThanAvailable_returnNULL();
+	//givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
+	//givenBlockSizeIsMaxRequested_returnNodeMaxSize();
+	//givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
 }
 
 /* Frees a block of memory previously allocated by mymalloc. */
