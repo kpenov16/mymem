@@ -285,7 +285,7 @@ void given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoF
 	struct node * node_req02 = (struct node *)mymalloc(req_size02);
 	struct node * node_req03 = (struct node *)mymalloc(req_size03);
 	struct node * node_req04 = (struct node *)mymalloc(req_size04);
-	print_my_list();
+	//print_my_list();
 	
 	//assert
 	assert( node_req01->size == req_size01 && "node_req01->size == req_size");
@@ -321,8 +321,8 @@ void givenAddOneBlockMaxSizeAndRemoveTheBlock_returnInitialStatus(){
 
 	int req_size = 500;
 	struct node * node_req = (struct node *)mymalloc(req_size); 
-	printf("\n%s\n","Setup");
-	print_my_list();
+	//printf("\n%s\n","Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req);
@@ -346,8 +346,8 @@ void givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus(){
 
 	int req_size = 400;
 	struct node * node_req = (struct node *)mymalloc(req_size); 
-	printf("\n%s\n","Setup");
-	print_my_list();
+	//printf("\n%s\n","Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req);
@@ -373,11 +373,14 @@ void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFi
 	int req_size02 = block_size - req_size01;
 	struct node * node_req01 = (struct node *)mymalloc(req_size01);
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
-	printf("\n%s\n","Setup");
+	printf("\n%s\n","After Setup");
 	print_my_list();
 
 	//act
 	myfree(node_req01);
+
+	printf("\n%s\n","After Act");
+	print_my_list();
 
 	//assert
 	assert( _head->i == 0 && "_head->i == 0");
@@ -429,17 +432,43 @@ void myfree(void * block)
 		return;
 	}
 
-	node_to_del->i = 0;
-	node_to_del->is_free = true;
-	node_to_del->next = NULL;
-	node_to_del->prev = NULL;
-	node_to_del->ptr_start = _main_mem;
-	node_to_del->size = _main_mem_size_total;
-	
-	free(_worst_node);
-	_worst_node = NULL;
+	if(node_to_del->prev == NULL && 
+	   node_to_del->next != NULL && node_to_del->next == _worst_node){
+		
+		node_to_del->i = 0;
+		node_to_del->is_free = true;
+		node_to_del->next = NULL;
+		node_to_del->prev = NULL;
+		node_to_del->ptr_start = _main_mem;
+		node_to_del->size = _main_mem_size_total;
+		
+		free(_worst_node);
+		_worst_node = NULL;
 
-	_worst_node = _head;
+		_worst_node = _head;
+		return;
+	}
+
+	if(node_to_del->prev == NULL && 
+	   node_to_del->next != NULL && node_to_del->next->is_free == false){
+
+		node_to_del->i = 0;
+		node_to_del->is_free = true;
+		node_to_del->ptr_start = _main_mem;
+
+		if(_worst_node != NULL){
+			free(_worst_node);
+			_worst_node = NULL;
+		}
+		_worst_node = node_to_del;
+
+		_worst_node = _head;
+
+		return;
+	}
+
+
+
 
 
 	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
