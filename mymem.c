@@ -54,8 +54,12 @@ void * alloc_worst(size_t req_size){
 	else if(_worst_node->size < req_size)
 		return NULL;	
 	else if(_worst_node->size == req_size){ //exact size as the size of the worst node 
+		if(_worst_node->prev == NULL){
+			_worst_node->i = 0;
+		}else{
+			_worst_node->i = _worst_node->prev->i + 1;
+		}
 		_worst_node->is_free = false;
-		_worst_node->i = _worst_node->prev != NULL ? (_worst_node->prev->i + 1) : 0;
 		struct node * tmp = _worst_node;
 		_worst_node = NULL;
 		return tmp;		
@@ -85,10 +89,6 @@ void * alloc_worst(size_t req_size){
 
 			_worst_node->size = _worst_node->size - req_size;
 			_worst_node->ptr_start = _worst_node->ptr_start + req_size;
-			if(_worst_node->size == 0){
-				//free(_worst_node);
-				//_worst_node == NULL;
-			} 
 		}	
 		return new_node;
 	}
@@ -245,7 +245,8 @@ void given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoF
 	struct node * node_req01 = (struct node *)mymalloc(req_size01); //request more than available
 	struct node * node_req02 = (struct node *)mymalloc(req_size02);
 	struct node * node_req03 = (struct node *)mymalloc(req_size03);
-	print_my_list();
+	//print_my_list();
+	
 	//assert
 	assert( node_req01->size == req_size01 && "node_req01->size == req_size");
 	assert( node_req01->is_free == false && "node_req01->is_free == false");
@@ -269,6 +270,52 @@ void given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoF
 	//clean_up();
 }
 
+void given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	//act
+	int req_size01 = 200;
+	int req_size02 = 150;
+	int req_size03 = 100;
+	int req_size04 = block_size - req_size01 - req_size02 - req_size03; //50
+	struct node * node_req01 = (struct node *)mymalloc(req_size01); //request more than available
+	struct node * node_req02 = (struct node *)mymalloc(req_size02);
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	print_my_list();
+	
+	//assert
+	assert( node_req01->size == req_size01 && "node_req01->size == req_size");
+	assert( node_req01->is_free == false && "node_req01->is_free == false");
+	assert( node_req01->next == node_req02 && "node_req01->next == node_req02");
+	assert( node_req01->prev == NULL && "node_req01->prev == NULL");
+	
+	assert( node_req02->size == req_size02 && "node_req02->size == req_size02");
+	assert( node_req02->is_free == false && "node_req02->is_free == false");
+	assert( node_req02->prev == node_req01 && "node_req02->prev == node_req01");
+	assert( node_req02->next == node_req03 && "node_req02->next == node_req03");
+
+	assert( node_req03->size == req_size03 && "node_req03->size == req_size03");
+	assert( node_req03->is_free == false && "node_req03->is_free == false");
+	assert( node_req03->prev == node_req02 && "node_req03->prev == node_req02");
+	assert( node_req03->next == node_req04 && "node_req03->next == node_req04");
+	
+	
+	assert( node_req04->size == req_size04 && "node_req04->size == req_size04");
+	assert( node_req04->is_free == false && "node_req04->is_free == false");
+	assert( node_req04->prev == node_req03 && "node_req04->prev == node_req03");
+	assert( node_req04->next == NULL && "node_req04->next == NULL");
+
+	assert( _head == node_req01 && "_head == node_req01");
+	assert( _worst_node == NULL && "_worst_node == NULL");
+	
+	//clean
+	//clean_up();
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -278,6 +325,7 @@ void clean_up(){
 }
 
 int main(){
+	given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory();
 	given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory();
 	given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory();
 	givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL();
@@ -336,16 +384,19 @@ void initmem(strategies strategy, size_t size)
 	/* all implementations will need an actual block of memory to use */
 	_main_mem_size_total = size;
 
-	if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
-
+	if (_main_mem != NULL){
+		free(_main_mem); /* in case this is not the first time initmem2 is called */
+		_main_mem = NULL;
+	} 
 	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
 	while (_head != NULL){
 		void * tmp = _head;
 		_head = _head->next;
 		free(tmp);
+		tmp = NULL; //make it a habit
 	}
 
-	_main_mem = (char *)malloc(size);
+	_main_mem = (char *)calloc(size, sizeof(char));
 	
 	
 	/* TODO: Initialize memory management structure. */
@@ -363,17 +414,16 @@ void initmem(strategies strategy, size_t size)
 	static struct node *_head;
 	static struct node *_next;
 	*/
-	if(_worst_node != NULL) 
-		free(_worst_node);
+	//if(_worst_node != NULL) 
+	//	free(_worst_node);
 	
-	_head = malloc(sizeof(struct node));
+	_head = calloc(1, sizeof(struct node));
 	_head->i = 0;
 	_head->is_free = true;
 	_head->ptr_start = _main_mem;
 	_head->size = size;
 	_head->next = NULL;
 	_head->prev = NULL;
-	//_head->next = _next;
 	
 	_worst_node = _head;
 }
