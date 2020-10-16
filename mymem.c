@@ -363,17 +363,14 @@ int main(){
 }
 
 /* Frees a block of memory previously allocated by mymalloc. */
-void myfree(void* block)
+void myfree(void * block)
 {
+	struct node * node_to_del = (struct node *)block;
+	node_to_del->is_free = true;
+	_worst_node = _head;
 	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
 
 	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
-	/*while (_head != NULL){
-		void * tmp = _head;
-		_head = _head->next;
-		free(tmp);
-	}*/
-
 	return;
 }
 
