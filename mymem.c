@@ -336,12 +336,33 @@ void givenAddOneBlockMaxSizeAndRemoveTheBlock_returnInitialStatus(){
 	assert( _head->size == block_size && "_head->size == block_size");
 	
 	assert( _worst_node == _head && "_worst_node == _head");
-
-	//assert( node_req->size == req_size01 && "node_req01->size == req_size");
-	//assert( node_req01->is_free == false && "node_req01->is_free == false");
-	//assert( node_req01->next == node_req02 && "node_req01->next == node_req02");
-	//assert( node_req01->prev == NULL && "node_req01->prev == NULL");
 }
+
+void givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size = 400;
+	struct node * node_req = (struct node *)mymalloc(req_size); 
+	printf("\n%s\n","Setup");
+	print_my_list();
+
+	//act
+	myfree(node_req);
+
+	//assert
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == NULL && "_head->next == NULL");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == block_size && "_head->size == block_size");
+	
+	assert( _worst_node == _head && "_worst_node == _head");
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -351,6 +372,7 @@ void clean_up(){
 }
 
 int main(){
+	givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus();
 	givenAddOneBlockMaxSizeAndRemoveTheBlock_returnInitialStatus();
 	given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory();
 	given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory();
