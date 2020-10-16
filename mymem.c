@@ -388,8 +388,25 @@ int main(){
 void myfree(void * block)
 {
 	struct node * node_to_del = (struct node *)block;
+	if(node_to_del->size == _main_mem_size_total){
+		node_to_del->is_free = true;
+		_worst_node = _head;
+		return;
+	}
+
+	node_to_del->i = 0;
 	node_to_del->is_free = true;
+	node_to_del->next = NULL;
+	node_to_del->prev = NULL;
+	node_to_del->ptr_start = _main_mem;
+	node_to_del->size = _main_mem_size_total;
+	
+	free(_worst_node);
+	_worst_node = NULL;
+
 	_worst_node = _head;
+
+
 	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
 
 	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
