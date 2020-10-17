@@ -373,14 +373,14 @@ void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFi
 	int req_size02 = block_size - req_size01;
 	struct node * node_req01 = (struct node *)mymalloc(req_size01);
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
-	printf("\n%s\n","After Setup");
-	print_my_list();
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req01);
 
-	printf("\n%s\n","After Act");
-	print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
 
 	//assert
 	assert( _head->i == 0 && "_head->i == 0");
@@ -461,6 +461,18 @@ void myfree(void * block)
 	if(node_to_del->size == _main_mem_size_total){
 		node_to_del->is_free = true;
 		_worst_node = _head;
+		return;
+	}
+
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev == _worst_node){
+		_worst_node->size = _worst_node->size + node_to_del->size;
+		_worst_node->next = node_to_del->next;
+		//if(node_to_del->next != NULL){
+		//	node_to_del->next->prev = _worst_node;
+		//}
+		free(node_to_del);
+		node_to_del = NULL;
 		return;
 	}
 
