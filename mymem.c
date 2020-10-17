@@ -399,7 +399,39 @@ void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFi
 	assert(node_req02->ptr_start == _main_mem + _head->size && "node_req02->ptr_start == _main_mem + _head->size");
 	assert(node_req02->size == req_size02 && "node_req02->size == req_size02");
 }
+
 void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitialStatus(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 400;
+	int req_size02 = block_size - req_size01;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req01);
+	myfree(node_req02);
+
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+
+	//assert
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == NULL && "_head->next == NULL");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == block_size && "_head->size == block_size");
+	
+	assert( _worst_node == _head && "_worst_node == _head");
+}
+
+void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstIsThereNotFreed(){
 	//setup
 	strategies strat = Worst;
 	int block_size = 500;		
@@ -413,7 +445,6 @@ void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitia
 	print_my_list();
 
 	//act
-	myfree(node_req01);
 	myfree(node_req02);
 
 	printf("\n%s\n","After Act");
@@ -421,15 +452,21 @@ void givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitia
 
 	//assert
 	assert( _head->i == 0 && "_head->i == 0");
-	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->is_free == false && "_head->is_free == false");
 	assert( _head->prev == NULL && "assert( _head->prev == NULL");
-	assert( _head->next == NULL && "_head->next == NULL");
+	assert( _head->next == node_req02 && "_head->next == node_req02");
 	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
-	assert( _head->size == block_size && "_head->size == block_size");
+	assert( _head->size == req_size01 && "_head->size == block_size");
 	
-	assert( _worst_node == _head && "_worst_node == _head");
-}
+	assert( _worst_node == node_req02 && "_worst_node == node_req02");
 
+	assert(node_req02->i == 1 && "node_req02->i == 1");
+	assert(node_req02->is_free == true && "node_req02->is_free == true");
+	assert(node_req02->next == NULL && "node_req02->next == NULL");
+	assert(node_req02->prev == node_req01 && "node_req02->prev == node_req01");
+	assert(node_req02->ptr_start == _main_mem + req_size02 && "node_req02->ptr_start == _main_mem + req_size02");
+	assert(node_req02->size == req_size02 && "node_req02->size == req_size02");
+}
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -439,6 +476,7 @@ void clean_up(){
 }
 
 int main(){
+	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstIsThereNotFreed();
 	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitialStatus();
 	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondIsThereNotFreed();
 	givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus();
