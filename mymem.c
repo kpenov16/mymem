@@ -758,6 +758,18 @@ void myfree(void * block)
 		return;
 	}
 
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == false &&
+	   _worst_node != NULL){
+		if(node_to_del->size > _worst_node->size){
+			_worst_node = node_to_del;
+		}	
+		node_to_del->is_free = true;
+		return;
+	}
+
 	if(node_to_del->prev == NULL && 
 	   node_to_del->next != NULL && node_to_del->next == _worst_node){
 		
