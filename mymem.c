@@ -598,14 +598,14 @@ void givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheFirstBlock_returnTheFirst
 	struct node * node_req01 = (struct node *)mymalloc(req_size01);
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
 	struct node * node_req03 = (struct node *)mymalloc(req_size03); 
-	printf("\n%s\n","After Setup");
-	print_my_list();
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req01);
 
-	printf("\n%s\n","After Act");
-	print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
 
 	//assert
 	assert( _head == _worst_node && "_head == _worst_node");
@@ -632,6 +632,58 @@ void givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheFirstBlock_returnTheFirst
 	assert(node_req03->size == req_size03 && "node_req03->size == req_size03");
 
 }
+
+void givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 300;
+	int req_size02 = 100;
+	int req_size03 = 50;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03); 
+	struct node * worst_before = _worst_node;
+	printf("\n%s\n","After Setup");
+	print_my_list();
+
+	//act
+	myfree(node_req02);
+
+	printf("\n%s\n","After Act");
+	print_my_list();
+
+	//assert
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == false && "_head->is_free == false");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == _worst_node && "_head->next == _worst_node");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == req_size01 && "_head->size == block_size");
+	
+	assert(_worst_node->i == 1 && "_worst_node->i == 1");
+	assert(_worst_node->is_free == true && "_worst_node->is_free == true");
+	assert(_worst_node->next == node_req03 && "_worst_node->next == node_req03");
+	assert(_worst_node->prev == node_req01 && "_worst_node->prev == node_req01");
+	assert(_worst_node->ptr_start == _main_mem + req_size01 && "_worst_node->ptr_start == _main_mem + req_size01");
+	assert(_worst_node->size == req_size02 && "_worst_node->size == req_size02");
+
+	assert(node_req03->i == 2 && "node_req03->i == 2");
+	assert(node_req03->is_free == false && "node_req03->is_free == false");
+	assert(node_req03->next == worst_before && "node_req03->next == worst_before");
+	assert(node_req03->prev == _worst_node && "node_req03->prev == _worst_node");
+	assert(node_req03->ptr_start == _main_mem + req_size01 + req_size02 && "node_req03->ptr_start == _main_mem + req_size01 + req_size02");
+	assert(node_req03->size == req_size03 && "node_req03->size == req_size03");
+
+	assert(worst_before->i == 3 && "worst_before->i == 3");
+	assert(worst_before->is_free == true && "worst_before->is_free == true");
+	assert(worst_before->next == NULL && "worst_before->next == NULL");
+	assert(worst_before->prev == node_req03 && "worst_before->prev == node_req03");
+	assert(worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 && "worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03");
+	assert(worst_before->size == block_size - req_size01 - req_size02 - req_size03 && "worst_before->size == block_size - req_size01 - req_size02 - req_size03");
+}
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -641,6 +693,8 @@ void clean_up(){
 }
 
 int main(){
+	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock();
+
 	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondAndLastAreThereNotFreed();
 	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheLastBlock_returnTheLastIsFreedAndTheFirstAndSecondAreThereNotFreed();
 	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreed();
