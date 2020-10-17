@@ -601,6 +601,17 @@ void myfree(void * block)
 		return;
 	}
 
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == false &&
+	   _worst_node == NULL){
+		_worst_node = node_to_del;
+		_worst_node->is_free = true;
+		node_to_del = NULL;
+		return;
+	}
+
 	if(node_to_del->prev == NULL && 
 	   node_to_del->next != NULL && node_to_del->next == _worst_node){
 		
