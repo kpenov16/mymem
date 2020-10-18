@@ -748,15 +748,15 @@ void givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHea
 	struct node * node_req01 = (struct node *)mymalloc(req_size01);
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
 	struct node * node_req03 = (struct node *)mymalloc(req_size03); 
-	printf("\n%s\n","After Setup");
-	print_my_list();
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req02);
 	myfree(node_req01);
 
-	printf("\n%s\n","After Act");
-	print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
 
 	//assert
 	assert( _head->i == 0 && "_head->i == 0");
@@ -781,6 +781,53 @@ void givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHea
 	assert(_worst_node->size == block_size - req_size01 - req_size02 - req_size03 && "_worst_node->size == block_size - req_size01 - req_size02 - req_size03");
 }
 
+void givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 120;
+	int req_size02 = 130;
+	int req_size03 = 100;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * worst_before = node_req03->next; 
+	printf("\n%s\n","After Setup");
+	print_my_list();
+
+	//act
+	myfree(node_req02);
+	myfree(node_req01);
+
+	printf("\n%s\n","After Act");
+	print_my_list();
+
+	//assert
+	assert( _head == _worst_node && "_head == _worst_node");
+
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == node_req03 && "_head->next == node_req03");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == req_size01 + req_size02 && "_head->size == req_size01 + req_size02");
+
+	assert(node_req03->i == 1 && "node_req03->i == 1");
+	assert(node_req03->is_free == false && "node_req03->is_free == false");
+	assert(node_req03->next == worst_before && "node_req03->next == worst_before");
+	assert(node_req03->prev == _head && "node_req03->prev == _head");
+	assert(node_req03->ptr_start == _main_mem + req_size01 + req_size02 && "node_req03->ptr_start == _main_mem + req_size01 + req_size02");
+	assert(node_req03->size == req_size03 && "node_req03->size == req_size03");
+
+	assert(worst_before->i == 2 && "worst_before->i == 2");
+	assert(worst_before->is_free == true && "worst_before->is_free == true");
+	assert(worst_before->next == NULL && "worst_before->next == NULL");
+	assert(worst_before->prev == node_req03 && "worst_before->prev == node_req03");
+	assert(worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 && "worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03");
+	assert(worst_before->size == block_size - req_size01 - req_size02 - req_size03 && "worst_before->size == block_size - req_size01 - req_size02 - req_size03");
+}
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -790,6 +837,7 @@ void clean_up(){
 }
 
 int main(){
+	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead();	
 	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstNotChanged();	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockSmallerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsNotChangedBlock();
 	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock();
 
@@ -907,9 +955,9 @@ void myfree(void * block)
 			p->i -= 1;
 		}
 
-		//if(node_to_del->size > _worst_node->size){
-		//	_worst_node = node_to_del;
-		//}
+		if(node_to_del->size > _worst_node->size){
+			_worst_node = node_to_del;
+		}
 
 		return;
 	}
