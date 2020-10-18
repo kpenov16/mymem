@@ -875,16 +875,16 @@ void givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSo
 	struct node * node_req01 = (struct node *)mymalloc(req_size01);
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
 	struct node * node_req03 = (struct node *)mymalloc(req_size03);
-	printf("\n%s\n","After Setup");
-	print_my_list();
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req02);
 	myfree(node_req01);
 	myfree(node_req03);
 
-	printf("\n%s\n","After Act");
-	print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
 
 	//assert
 	assert( _head == _worst_node && "_head == _worst_node");
@@ -897,6 +897,147 @@ void givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSo
 	assert( _head->size == block_size && "_head->size == block_size");
 }
 
+
+void givenAddThreeBlocksFreeSecondAndThenThirdInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnFirstIsThereSecondIsWorst(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 20;
+	int req_size02 = 30;
+	int req_size03 = 100;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req02);
+	myfree(node_req03);
+
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+
+	//assert
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == false && "_head->is_free == false");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == node_req02 && "_head->next == node_req02");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == req_size01 && "_head->size == req_size01");
+
+	assert( _worst_node == node_req02 && "_worst_node == node_req02");
+	assert( _worst_node->i == 1 && "_worst_node->i == 1");
+	assert( _worst_node->is_free == true && "_worst_node->is_free == true");
+	assert( _worst_node->next == NULL && "_worst_node->next == NULL");
+	assert( _worst_node->prev == _head && "_worst_node->prev == _head");
+	assert( _worst_node->ptr_start == _main_mem + _head->size && "_worst_node->ptr_start == _main_mem + _head->size");
+	assert( _worst_node->size == block_size - req_size01 && "_worst_node->size == block_size - req_size01");
+}
+
+void givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockLessThanWorst_returnWorstUnchangedNewBiggerFreedBlockInsteadOfTheTreeBlocks(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 20;
+	int req_size02 = 30;
+	int req_size03 = 50;
+	int req_size04 = 100;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req01);
+	myfree(node_req03);
+	myfree(node_req02);
+
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+
+	//assert
+	assert( _head->i == 0 );
+	assert( _head->is_free == true );
+	assert( _head->prev == NULL );
+	assert( _head->next == node_req04 );
+	assert( _head->ptr_start == _main_mem );
+	assert( _head->size == req_size01 + req_size02 + req_size03 );
+
+	assert(node_req04->i == 1);
+	assert(node_req04->is_free == false);
+	assert(node_req04->next == _worst_node);
+	assert(node_req04->prev == _head);
+	assert(node_req04->ptr_start == _main_mem + req_size01 + req_size02 + req_size03);	
+	assert(node_req04->size == req_size04);
+
+	assert( _worst_node == node_req04->next && "_worst_node == node_req04->next");
+	assert( _worst_node->i == 2 && "_worst_node->i == 2");
+	assert( _worst_node->is_free == true && "_worst_node->is_free == true");
+	assert( _worst_node->next == NULL && "_worst_node->next == NULL");
+	assert( _worst_node->prev == node_req04 && "_worst_node->prev == node_req04");
+	assert( _worst_node->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 + req_size04);
+	assert( _worst_node->size == block_size - (req_size01 + req_size02 + req_size03 + req_size04));
+}
+
+void givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 20;
+	int req_size02 = 200;
+	int req_size03 = 30;
+	int req_size04 = 50;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	struct node * worst_before = node_req04->next;
+	printf("\n%s\n","After Setup");
+	print_my_list();
+
+	//act
+	myfree(node_req01);
+	myfree(node_req03);
+	myfree(node_req02);
+
+	printf("\n%s\n","After Act");
+	print_my_list();
+
+	//assert
+	assert(_worst_node == _head);
+
+	assert( _head->i == 0 );
+	assert( _head->is_free == true );
+	assert( _head->prev == NULL );
+	assert( _head->next == node_req04 );
+	assert( _head->ptr_start == _main_mem );
+	assert( _head->size == req_size01 + req_size02 + req_size03 );
+
+	assert(node_req04->i == 1);
+	assert(node_req04->is_free == false);
+	assert(node_req04->next == worst_before);
+	assert(node_req04->prev == _head);
+	assert(node_req04->ptr_start == _main_mem + req_size01 + req_size02 + req_size03);	
+	assert(node_req04->size == req_size04);
+
+	assert( worst_before == node_req04->next );
+	assert( worst_before->i == 2 );
+	assert( worst_before->is_free == true );
+	assert( worst_before->next == NULL );
+	assert( worst_before->prev == node_req04 );
+	assert( worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 + req_size04);
+	assert( worst_before->size == block_size - (req_size01 + req_size02 + req_size03 + req_size04));
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -906,6 +1047,10 @@ void clean_up(){
 }
 
 int main(){
+	givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock();
+	givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockLessThanWorst_returnWorstUnchangedNewBiggerFreedBlockInsteadOfTheTreeBlocks();
+
+	givenAddThreeBlocksFreeSecondAndThenThirdInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnFirstIsThereSecondIsWorst();
 	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnInitialState();
 	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotal_returnInitialState();
 	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead();	
@@ -947,8 +1092,9 @@ void myfree(void * block)
 	   node_to_del->prev->is_free == true && 
 	   node_to_del->next != NULL &&
 	   node_to_del->next->is_free == true){
+		int size_freed = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
 		if(node_to_del->prev == _worst_node){
-			_worst_node->size = _worst_node->size + node_to_del->size + node_to_del->next->size;
+			_worst_node->size = size_freed;
 			_worst_node->next = node_to_del->next->next;
 			if(node_to_del->next->next != NULL){
 				node_to_del->next->next->prev = _worst_node;
@@ -960,7 +1106,7 @@ void myfree(void * block)
 			return;
 		}
 		if(node_to_del->next == _worst_node){
-			node_to_del->prev->size = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
+			node_to_del->prev->size = size_freed;
 			node_to_del->prev->next = node_to_del->next->next; 
 			if(node_to_del->next->next != NULL){
 				node_to_del->next->next->prev = node_to_del->prev;
@@ -972,7 +1118,25 @@ void myfree(void * block)
 			node_to_del = NULL;
 			return;
 		}
-
+		
+		if(_worst_node->size < size_freed){
+			_worst_node = node_to_del->prev;
+		}
+		struct node * prev = node_to_del->prev;
+		node_to_del->prev->size = size_freed;
+		node_to_del->prev->next = node_to_del->next->next; 
+		if(node_to_del->next->next != NULL){
+			node_to_del->next->next->prev = node_to_del->prev;
+			free(node_to_del->next);
+			node_to_del->next = NULL;
+		}
+		//_worst_node = node_to_del->prev;
+		free(node_to_del);
+		node_to_del = NULL;
+		for(struct node * p = prev->next; p != NULL; p = p->next){
+			p->i -= 2;
+		}
+		return;
 	}
 
 	if(node_to_del->prev != NULL && 
@@ -1068,20 +1232,23 @@ void myfree(void * block)
 	}
 
 	if(node_to_del->prev == NULL && 
-	   node_to_del->next != NULL && node_to_del->next->is_free == false){
+	   node_to_del->next != NULL && 
+	   node_to_del->next->is_free == false){
 
 		node_to_del->i = 0;
 		node_to_del->is_free = true;
 		node_to_del->ptr_start = _main_mem;
 
-		if(_worst_node != NULL){
-			free(_worst_node);
-			_worst_node = NULL;
+		if(_worst_node == NULL || 
+			(_worst_node != NULL && _worst_node->size < node_to_del->size)){
+			
+			_worst_node = node_to_del;
+			return;
 		}
-		_worst_node = node_to_del;
-
-		_worst_node = _head;
-
+		if(_worst_node != NULL &&
+			_worst_node->size > node_to_del->size){
+			return;
+		}
 		return;
 	}
 
