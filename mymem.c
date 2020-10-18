@@ -794,15 +794,15 @@ void givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnH
 	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
 	struct node * node_req03 = (struct node *)mymalloc(req_size03);
 	struct node * worst_before = node_req03->next; 
-	printf("\n%s\n","After Setup");
-	print_my_list();
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
 
 	//act
 	myfree(node_req02);
 	myfree(node_req01);
 
-	printf("\n%s\n","After Act");
-	print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
 
 	//assert
 	assert( _head == _worst_node && "_head == _worst_node");
@@ -828,6 +828,75 @@ void givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnH
 	assert(worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 && "worst_before->ptr_start == _main_mem + req_size01 + req_size02 + req_size03");
 	assert(worst_before->size == block_size - req_size01 - req_size02 - req_size03 && "worst_before->size == block_size - req_size01 - req_size02 - req_size03");
 }
+
+void givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotal_returnInitialState(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 120;
+	int req_size02 = 130;
+	int req_size03 = 100;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req02);
+	myfree(node_req01);
+	myfree(node_req03);
+
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+
+	//assert
+	assert( _head == _worst_node && "_head == _worst_node");
+
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == NULL && "_head->next == NULL");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == block_size && "_head->size == block_size");
+}
+
+void givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnInitialState(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 20;
+	int req_size02 = 30;
+	int req_size03 = 100;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	printf("\n%s\n","After Setup");
+	print_my_list();
+
+	//act
+	myfree(node_req02);
+	myfree(node_req01);
+	myfree(node_req03);
+
+	printf("\n%s\n","After Act");
+	print_my_list();
+
+	//assert
+	assert( _head == _worst_node && "_head == _worst_node");
+
+	assert( _head->i == 0 && "_head->i == 0");
+	assert( _head->is_free == true && "_head->is_free == true");
+	assert( _head->prev == NULL && "assert( _head->prev == NULL");
+	assert( _head->next == NULL && "_head->next == NULL");
+	assert( _head->ptr_start == _main_mem && "_head->ptr_start == _main_mem");
+	assert( _head->size == block_size && "_head->size == block_size");
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -837,6 +906,8 @@ void clean_up(){
 }
 
 int main(){
+	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnInitialState();
+	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotal_returnInitialState();
 	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead();	
 	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstNotChanged();	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockSmallerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsNotChangedBlock();
 	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock();
@@ -871,8 +942,42 @@ void myfree(void * block)
 		return;
 	}
 
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == true && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == true){
+		if(node_to_del->prev == _worst_node){
+			_worst_node->size = _worst_node->size + node_to_del->size + node_to_del->next->size;
+			_worst_node->next = node_to_del->next->next;
+			if(node_to_del->next->next != NULL){
+				node_to_del->next->next->prev = _worst_node;
+				free(node_to_del->next);
+				node_to_del->next = NULL;
+			}
+			free(node_to_del);
+			node_to_del = NULL;
+			return;
+		}
+		if(node_to_del->next == _worst_node){
+			node_to_del->prev->size = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
+			node_to_del->prev->next = node_to_del->next->next; 
+			if(node_to_del->next->next != NULL){
+				node_to_del->next->next->prev = node_to_del->prev;
+				free(node_to_del->next);
+				node_to_del->next = NULL;
+			}
+			_worst_node = node_to_del->prev;
+			free(node_to_del);
+			node_to_del = NULL;
+			return;
+		}
+
+	}
+
 	if(node_to_del->prev != NULL && 
 	   node_to_del->prev == _worst_node){
+
 		_worst_node->size = _worst_node->size + node_to_del->size;
 		_worst_node->next = node_to_del->next;
 		//if(node_to_del->next != NULL){
