@@ -65,7 +65,7 @@ void * alloc_worst(size_t req_size){
 	else if(_worst_node->size < req_size){
 		struct node * next_worst = getNextWorst();
 		if(next_worst != NULL && next_worst->size >= req_size){
-			printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
+			//printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
 			_worst_node = next_worst;
 			return alloc_worst(req_size);
 		}
@@ -1536,6 +1536,48 @@ void givenMoreThanOneHoles_returnHolesCount(){
 	assert(holes == 3);
 }
 
+void givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 500;
+	
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	//myfree(node_req01);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	char is_alloc01 = mem_is_alloc(node_req01->ptr_start);
+	char is_alloc02 = mem_is_alloc(node_req01->ptr_start + 5);
+	//assert
+	assert(is_alloc01 == 1 && "It is alocated == 1, is not alocated == 0");
+	assert(is_alloc02 == 1 && "It is alocated == 1, is not alocated == 0");
+}
+
+void givenFreeBlockAndPointerInIt_returnBlockIsFree(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 500;
+	
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	myfree(node_req01);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	char is_alloc01 = mem_is_alloc(_worst_node->ptr_start);
+	char is_alloc02 = mem_is_alloc(_worst_node->ptr_start + 5);
+	//assert
+	assert(is_alloc01 == 0 && "It is alocated == 1, is not alocated == 0");
+	assert(is_alloc02 == 0 && "It is alocated == 1, is not alocated == 0");
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -1544,6 +1586,9 @@ void clean_up(){
 	//_main_mem = NULL;
 }
 int main(){
+	givenFreeBlockAndPointerInIt_returnBlockIsFree();
+	givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
+
 	givenMoreThanOneHoles_returnHolesCount();
 	givenOneHole_returnOneHole();
 	givenZeroHoles_returnZeroHoles();
@@ -1920,8 +1965,7 @@ void *mymalloc(size_t requested)
  */
 
 /* Get the number of contiguous areas of free space in memory. */
-int mem_holes()
-{
+int mem_holes(){
 	int holes = 0;
 	for(struct node * p = _head; p != NULL; p = p->next){
 		if(p->is_free) 
@@ -1931,32 +1975,54 @@ int mem_holes()
 }
 
 /* Get the number of bytes allocated */
-int mem_allocated()
-{
-	return 0;
+int mem_allocated(){
+	int bytes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(!p->is_free) 
+			bytes += p->size;
+	}
+	return bytes;
 }
 
 /* Number of non-allocated bytes */
 int mem_free()
 {
-	return 0;
+	int bytes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free) 
+			bytes += p->size;
+	}
+	return bytes;
 }
 
 /* Number of bytes in the largest contiguous area of unallocated memory */
-int mem_largest_free()
-{
+int mem_largest_free(){
+	if(_worst_node != NULL)
+		return _worst_node->size;
 	return 0;
 }
 
 /* Number of free blocks smaller than "size" bytes. */
-int mem_small_free(int size)
-{
-	return 0;
+int mem_small_free(int size){
+	int blocks = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free && p->size < size) 
+			blocks++;
+	}
+	return blocks;
 }       
 
-char mem_is_alloc(void *ptr)
-{
-        return 0;
+char mem_is_alloc(void *ptr){
+	char * l = (char *) ptr;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		char * low = p->ptr_start;
+		char * high = p->ptr_start + p->size;
+		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
+		if(low <= l && l < high){
+			return !p->is_free;
+		} 		
+	}	
+	return -1;
 }
 
 /* 
