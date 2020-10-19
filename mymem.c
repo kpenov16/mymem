@@ -1491,6 +1491,24 @@ void givenZeroHoles_returnZeroHoles(){
 	assert(holes == 0);
 }
 
+void givenOneHole_returnOneHole(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 400;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	int holes =	mem_holes();
+
+	//assert
+	assert(holes == 1);
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -1499,6 +1517,7 @@ void clean_up(){
 	//_main_mem = NULL;
 }
 int main(){
+	givenOneHole_returnOneHole();
 	givenZeroHoles_returnZeroHoles();
 	
 	givenCreateNewWorstByCallingMymalloc_returnNextWorstIsChosen();
