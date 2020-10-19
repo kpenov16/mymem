@@ -48,53 +48,89 @@ void free_list_from_head(){
 }
 struct node * _worst_node;
 
+struct node * getNextWorst(){
+	struct node dummy = { 0 };
+	struct node * next_worst = &dummy; 
+	for (struct node * p = _head; p != NULL; p = p->next){
+		if( p !=_worst_node && p->is_free == true && next_worst->size < p->size){
+			next_worst = p;
+		}
+	}
+	return next_worst->size > 0 ? next_worst : NULL;	
+}
+
 void * alloc_worst(size_t req_size){
 	if(_worst_node == NULL)
 		return NULL;	
-	else if(_worst_node->size < req_size)
+	else if(_worst_node->size < req_size){
+		struct node * next_worst = getNextWorst();
+		if(next_worst != NULL && next_worst->size >= req_size){
+			printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
+			_worst_node = next_worst;
+			return alloc_worst(req_size);
+		}
 		return NULL;	
-	else if(_worst_node->size == req_size){ //exact size as the size of the worst node 
-		if(_worst_node->prev == NULL){
-			_worst_node->i = 0;
-		}else{
-			_worst_node->i = _worst_node->prev->i + 1;
-		}
-		_worst_node->is_free = false;
-		struct node * tmp = _worst_node;
-		_worst_node = NULL;
-		return tmp;		
-	}else if(_worst_node->size > req_size){
-		struct node * new_node = calloc(1, sizeof(struct node) );
-		new_node->size = req_size;
-		new_node->is_free = false;	
-		new_node->ptr_start = _worst_node->ptr_start;
-		new_node->next = _worst_node;
-		new_node->prev = _worst_node->prev;
-		
-		if(_worst_node->prev == NULL){
-			new_node->i = 0; 
-			_worst_node->i = 1;
-			
-			_head = new_node;
-			
-			_worst_node->prev = new_node;
-			_worst_node->size = _worst_node->size - req_size;
-			_worst_node->ptr_start = _worst_node->ptr_start + req_size;
-		}else{
-			new_node->i = new_node->prev->i + 1; 
-			_worst_node->i = new_node->i + 1;
-			
-			_worst_node->prev->next = new_node;
-			_worst_node->prev = new_node;
+	}else{
+		if(_worst_node->size == req_size){ //exact size as the size of the worst node 
+			if(_worst_node->prev == NULL){
+				_worst_node->i = 0;
+			}else{
+				_worst_node->i = _worst_node->prev->i + 1;
+			}
+			_worst_node->is_free = false;
+			struct node * tmp = _worst_node;
 
-			_worst_node->size = _worst_node->size - req_size;
-			_worst_node->ptr_start = _worst_node->ptr_start + req_size;
+			struct node * next_worst = getNextWorst();
+			if(next_worst != NULL && next_worst->size >= req_size){
+				_worst_node = next_worst;
+			}else{
+				_worst_node = NULL;
+			}			
+			return tmp;		
+		}else if(_worst_node->size > req_size){
+			struct node * new_node = calloc(1, sizeof(struct node) );
+			new_node->size = req_size;
+			new_node->is_free = false;	
+			new_node->ptr_start = _worst_node->ptr_start;
+			new_node->next = _worst_node;
+			new_node->prev = _worst_node->prev;
+			
+			if(_worst_node->prev == NULL){
+				new_node->i = 0; 
+				_worst_node->i = 1;
+				
+				_head = new_node;
+				
+				_worst_node->prev = new_node;
+				_worst_node->size = _worst_node->size - req_size;
+				_worst_node->ptr_start = _worst_node->ptr_start + req_size;
+			}else{
+				new_node->i = new_node->prev->i + 1; 
+				_worst_node->i = new_node->i + 1;
+				
+				_worst_node->prev->next = new_node;
+				_worst_node->prev = new_node;
+
+				_worst_node->size = _worst_node->size - req_size;
+				_worst_node->ptr_start = _worst_node->ptr_start + req_size;
+			}
+			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
+				p->i += 1;
+			}
+			struct node * next_worst = getNextWorst();
+			if(next_worst != NULL && next_worst->size > _worst_node->size){
+				_worst_node = next_worst;
+			}
+			return new_node;
 		}
-		for(struct node * p = _worst_node->next; p != NULL; p = p->next){
-			p->i += 1;
+	} 
+}
+
+void d(int req_size){
+	struct node * next_worst = getNextWorst();
+		if(next_worst != NULL && next_worst->size > (_worst_node->size - req_size)){
+			printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
 		}
-		return new_node;
-	}
 }
 
 void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
@@ -1301,7 +1337,7 @@ void givenRemovefTotalSizeBiggerThenWorst_returnNewBlockIsWorst(){
 	assert(node_req05->prev == _worst_node);
 }
 
-void given_return(){
+void givenFreeTheFirstBlockSoThatItBecomesWorstAndAlocateNewBlock_returnTheBlockIsAlocatedFromTheNewWorst(){
 	//setup
 	strategies strat = Worst;
 	int block_size = 500;		
@@ -1322,10 +1358,10 @@ void given_return(){
 
 	//act
 	myfree(node_req01);
-	print_my_list();
+	//print_my_list();
 	int req_size_new01 = 1;
 	struct node * node_new01 = (struct node *)mymalloc(req_size_new01);
-	print_my_list();
+	//print_my_list();
 
 	//printf("\n%s\n","After Act");
 	//print_my_list();
@@ -1349,6 +1385,112 @@ void given_return(){
 	assert(node_req02->i == 2);
 }
 
+void givenFreeTheSecondBlockSoThatItBecomesWorstAndAlocateANewBlock_returnTheBlockIsAlocatedFromTheNewWorst(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 50;
+	int req_size02 = 150;
+	int req_size03 = 120;
+	int req_size04 = 30;
+	int req_size05 = 20;	
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	struct node * node_req05 = (struct node *)mymalloc(req_size05);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req02);
+	//print_my_list();
+	int req_size_new01 = 1;
+	struct node * node_new01 = (struct node *)mymalloc(req_size_new01);
+	//print_my_list();
+
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+	
+	//assert
+	assert(node_new01->next == _worst_node);
+	assert(node_new01->prev == node_req01);
+	assert(_head == node_req01);
+	assert(node_new01->i == 1);
+	assert(node_new01->is_free == false);
+	assert(node_new01->ptr_start == _main_mem + req_size01);
+	//printf("\nnode_new01->ptr_start = %p\n", node_new01->ptr_start);
+	assert(node_new01->size == req_size_new01);
+
+	assert(_worst_node->i == 2);
+	assert(_worst_node->is_free == true);
+	assert(_worst_node->next == node_req03);
+	assert(_worst_node->prev == node_new01);
+	assert(_worst_node->ptr_start == _main_mem + req_size01 + req_size_new01);
+	//printf("\n_worst_node->ptr_start = %p\n", _worst_node->ptr_start);	
+	assert(_worst_node->size ==  req_size02 - req_size_new01);
+
+	assert(node_req03->i == 3);
+}
+
+void givenCreateNewWorstByCallingMymalloc_returnNextWorstIsChosen(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size); //init mem
+
+	int req_size01 = 50;
+	int req_size02 = 150;
+	int req_size03 = 120;
+	int req_size04 = 30;
+	int req_size05 = 20;	
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02); 
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	struct node * node_req05 = (struct node *)mymalloc(req_size05);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	myfree(node_req02);
+	///print_my_list();
+	int req_size_new01 = 100;
+	struct node * node_new01 = (struct node *)mymalloc(req_size_new01);
+	//print_my_list();
+	//printf("\n%s\n","After Act");
+	//print_my_list();
+	
+	//assert
+	assert(_worst_node == node_req05->next);
+	assert(_worst_node->i == 6);
+	assert(_worst_node->is_free == true);
+	assert(_worst_node->next == NULL);
+	assert(_worst_node->prev == node_req05);
+	assert(_worst_node->ptr_start == _main_mem + req_size01 + req_size02 + req_size03 + req_size04 + req_size05);
+	assert(_worst_node->size ==  block_size - (req_size01 + req_size02 + req_size03 + req_size04 + req_size05));
+}
+
+void givenZeroHoles_returnZeroHoles(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 500;
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	int holes =	mem_holes();
+
+	//assert
+	assert(holes == 0);
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -1356,9 +1498,13 @@ void clean_up(){
 	_head = NULL;
 	//_main_mem = NULL;
 }
-
 int main(){
-	given_return();
+	givenZeroHoles_returnZeroHoles();
+	
+	givenCreateNewWorstByCallingMymalloc_returnNextWorstIsChosen();
+	givenFreeTheSecondBlockSoThatItBecomesWorstAndAlocateANewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
+	givenFreeTheFirstBlockSoThatItBecomesWorstAndAlocateNewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
+
 	givenRemovefTotalSizeBiggerThenWorst_returnNewBlockIsWorst();
 	givenFreeMiddleBlockBetweenFreedBlocksInHeadInTotalBiggerThanWorst_returnWorstInHead();
 	givenFreeBlockAfterNotFreedAndBeforeFreedAwayFromWorstAndBiggerThanWorst_returnBlockIsMergedWithNextFreeBlockAndIsTheNewWorst();
