@@ -1894,7 +1894,12 @@ void *mymalloc(size_t requested)
 /* Get the number of contiguous areas of free space in memory. */
 int mem_holes()
 {
-	return 0;
+	int holes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free) 
+			holes++;
+	}
+	return holes;
 }
 
 /* Get the number of bytes allocated */
