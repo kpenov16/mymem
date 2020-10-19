@@ -1509,6 +1509,33 @@ void givenOneHole_returnOneHole(){
 	assert(holes == 1);
 }
 
+void givenMoreThanOneHoles_returnHolesCount(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 100;
+	int req_size02 = 40;
+	int req_size03 = 5;
+	int req_size04 = 55;
+	
+	struct node * node_req01 = (struct node *)mymalloc(req_size01);
+	struct node * node_req02 = (struct node *)mymalloc(req_size02);
+	struct node * node_req03 = (struct node *)mymalloc(req_size03);
+	struct node * node_req04 = (struct node *)mymalloc(req_size04);
+	myfree(node_req01);
+	myfree(node_req03);
+	//printf("\n%s\n","After Setup");
+	//print_my_list();
+
+	//act
+	int holes =	mem_holes();
+
+	//assert
+	assert(holes == 3);
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -1517,6 +1544,7 @@ void clean_up(){
 	//_main_mem = NULL;
 }
 int main(){
+	givenMoreThanOneHoles_returnHolesCount();
 	givenOneHole_returnOneHole();
 	givenZeroHoles_returnZeroHoles();
 	
