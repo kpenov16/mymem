@@ -86,7 +86,8 @@ void * alloc_worst(size_t req_size){
 			}else{
 				_worst_node = NULL;
 			}			
-			return tmp;		
+			//return tmp;
+			return tmp->ptr_start;		
 		}else if(_worst_node->size > req_size){
 			struct node * new_node = calloc(1, sizeof(struct node) );
 			new_node->size = req_size;
@@ -121,7 +122,8 @@ void * alloc_worst(size_t req_size){
 			if(next_worst != NULL && next_worst->size > _worst_node->size){
 				_worst_node = next_worst;
 			}
-			return new_node;
+			//return new_node;
+			return new_node->ptr_start;
 		}
 	} 
 }
@@ -237,7 +239,7 @@ void print_my_list(){
 		printf("\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
 				p->is_free?"true":"false", 
 				p->size,
-				&p->ptr_start,
+				p->ptr_start,//&p->ptr_start,
 				p->i);
 }
 
@@ -1578,6 +1580,25 @@ void givenFreeBlockAndPointerInIt_returnBlockIsFree(){
 	assert(is_alloc02 == 0 && "It is alocated == 1, is not alocated == 0");
 }
 
+int nothing(){
+		strategies strat = Worst;
+		void* lastPointer = NULL;
+		initmem(strat,100);
+		for (int i = 0; i < 100; i++)
+		{
+			void* pointer = mymalloc(1);
+			if ( i > 0 && pointer != (lastPointer+1) )
+			{
+				printf("Allocation with %s was not sequential at %i; expected %p, actual %p\n", 
+				strategy_name(strat), i,lastPointer+1,pointer);
+				return 1;
+			}
+			lastPointer = pointer;
+		}
+		print_my_list();
+		return 0;
+}
+
 void clean_up(){
 	//free(_main_mem);
 	//free_list_from_head();
@@ -1585,7 +1606,10 @@ void clean_up(){
 	_head = NULL;
 	//_main_mem = NULL;
 }
-int main(){
+int main2(){
+	//char * arr[] = {"","worst"};
+	//try_mymem(2, arr);
+	nothing();
 	givenFreeBlockAndPointerInIt_returnBlockIsFree();
 	givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
 
@@ -1631,12 +1655,13 @@ int main(){
 	givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
 	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
+	return 0;
 }
-
+struct node * get_p_to_mem_in_list(void *);
 /* Frees a block of memory previously allocated by mymalloc. */
 void myfree(void * block)
 {
-	struct node * node_to_del = (struct node *)block;
+	struct node * node_to_del = get_p_to_mem_in_list(block);//(struct node *)block; 
 	if(node_to_del->size == _main_mem_size_total){
 		node_to_del->is_free = true;
 		_worst_node = _head;
@@ -1770,6 +1795,16 @@ void myfree(void * block)
 		node_to_del = NULL;
 		return;
 	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == true && 
+	   node_to_del->next == NULL &&
+	   _worst_node != NULL){
+		//TODO: make test first and make it pass, refactor
+		//TODO: refactor all tests to match the new requirement:  myalloc() should return the address of the position in the memory block not pointer to the list  
+		return;
+	}
+
 
 	if(node_to_del->prev != NULL && 
 	   node_to_del->prev->is_free == false && 
@@ -2025,6 +2060,22 @@ char mem_is_alloc(void *ptr){
 	return -1;
 }
 
+struct node * get_p_to_mem_in_list(void *ptr){
+	char * l = (char *) ptr;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		char * low = p->ptr_start;
+		char * high = p->ptr_start + p->size;
+		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
+		if(p->i == 99){
+			printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
+		}
+		if(low <= l && l < high){
+			return p;
+		} 		
+	}	
+	return NULL;
+}
+
 /* 
  * Feel free to use these functions, but do not modify them.  
  * The test code uses them, but you may find them useful.
@@ -2096,6 +2147,7 @@ strategies strategyFromString(char * strategy)
 /* Use this function to print out the current contents of memory. */
 void print_memory()
 {
+	print_my_list();
 	return;
 }
 
@@ -2114,6 +2166,7 @@ void print_memory_status()
  * implementations are called.  Run "mem -try <args>" to call this function.
  * We have given you a simple example to start.
  */
+
 void try_mymem(int argc, char **argv) {
     void *a, *b, *c, *d, *e;
 	strategies strat = argc > 1 ? strategyFromString(argv[1]) : First; 
@@ -2130,7 +2183,7 @@ void try_mymem(int argc, char **argv) {
 	d = mymalloc(50);
 	myfree(a);
 	e = mymalloc(25);
-	
+	print_my_list();
 	print_memory();
 	print_memory_status();
 	

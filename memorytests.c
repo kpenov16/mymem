@@ -173,6 +173,7 @@ int test_alloc_1(int argc, char **argv) {
 		for (i = 0; i < 100; i++)
 		{
 			void* pointer = mymalloc(1);
+			//printf("\ni = %d, p = %p\n", i, pointer);
 			if ( i > 0 && pointer != (lastPointer+1) )
 			{
 				printf("Allocation with %s was not sequential at %i; expected %p, actual %p\n", strategy_name(strategy), i,lastPointer+1,pointer);
@@ -331,12 +332,15 @@ int test_alloc_3(int argc, char **argv) {
 			}
 			lastPointer = pointer;
 		}
-
+		int ii = 0;
 		for (i = 1; i < 100; i+= 2)
 		{
 			myfree(mem_pool() + i);
+			ii=i;
 		}
-
+		print_memory();
+		printf("\nii = %d\n", ii);
+		printf("\nlast p = %p\n", (char *)mem_pool() + ii);
 		if (mem_holes() != correct_holes)
 		{
 			printf("Holes not counted as %d with %s\n", correct_holes, strategy_name(strategy));
