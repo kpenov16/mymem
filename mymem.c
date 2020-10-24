@@ -4,12 +4,24 @@
 #include <assert.h>
 #include "mymem.h"
 #include <time.h>
-
 #include <stdbool.h>
+
+//to run the tests in this file you need to
+//change main2 to main
+//in the console run: gcc mymem.c && ./a.out
+//UNIT_TEST 0 -> will run the original unit tests, use 'less tests.log' to see the output 
+//UNIT_TEST 1 -> will run my unit tests, no output means that everything works 
+				//at least after my tests, one test is not working: givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest() 
+				//as the compaction of scattered freed blocks is not implemented 
+#define UNIT_TEST 0  
+
+void my_do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int minBlockSize, int maxBlockSize, int iterations);
 
 void * alloc_worst(size_t requested);
 void given_block_bigger_than_max_requested_return_null();
-void clean_up();
+void print_my_list();
+void print_my_list_to_log(FILE *log);
+struct node * get_p_to_mem_in_list(void *);
 
 /* The main structure for implementing memory allocation.
  * You may change this to fit your implementation.
@@ -29,6 +41,16 @@ struct node
   struct node *next;
 };
 
+struct map_node{
+	char * ptr_start_prev;           // location of block in memory pool.
+	char * ptr_start_curr;           // location of block in memory pool.
+
+	// doubly-linked list
+	struct map_node *prev;
+	struct map_node *next;
+};
+static struct map_node *_map_head = NULL;
+
 strategies _strategy = 0;    // Current strategy 
 
 size_t _main_mem_size_total;
@@ -39,13 +61,6 @@ char * _main_mem = NULL;
 static struct node *_head;
 static struct node *_next;
 
-void free_list_from_head(){
-	while (_head != NULL){
-		struct node * tmp = _head;
-		_head = _head->next;
-		free(tmp);
-	}
-}
 struct node * _worst_node;
 
 struct node * getNextWorst(){
@@ -59,16 +74,38 @@ struct node * getNextWorst(){
 	return next_worst->size > 0 ? next_worst : NULL;	
 }
 
+bool comp_will_do(size_t req_size){
+	struct node * next_worst = getNextWorst();
+	if(_worst_node != NULL && next_worst != NULL){
+		return (_worst_node->size + next_worst->size) >= req_size;		
+	}	
+}
+void compact(size_t req_size){
+	//map from 
+}
+
 void * alloc_worst(size_t req_size){
 	if(_worst_node == NULL)
 		return NULL;	
 	else if(_worst_node->size < req_size){
+		/*compact();
+		for (struct node * p = _head; p != NULL; p = p->next){
+			
+		}
+		if(_worst_node->size >= req_size){
+			return alloc_worst(req_size);
+		}*/
+
 		struct node * next_worst = getNextWorst();
 		if(next_worst != NULL && next_worst->size >= req_size){
 			//printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
 			_worst_node = next_worst;
 			return alloc_worst(req_size);
 		}
+		/*if(comp_will_do(req_size)){
+			compact(req_size);
+			return alloc_worst(req_size);
+		}*/
 		return NULL;	
 	}else{
 		if(_worst_node->size == req_size){ //exact size as the size of the worst node 
@@ -85,11 +122,17 @@ void * alloc_worst(size_t req_size){
 				_worst_node = next_worst;
 			}else{
 				_worst_node = NULL;
-			}			
-			//return tmp;
-			return tmp->ptr_start;		
+			}		
+			return UNIT_TEST ? (void *)tmp : (void *)tmp->ptr_start;			
 		}else if(_worst_node->size > req_size){
-			struct node * new_node = calloc(1, sizeof(struct node) );
+
+			struct node * new_node = NULL;
+			while (new_node == NULL){
+				new_node = calloc(1, sizeof(struct node) );
+			}
+			
+			calloc(1, sizeof(struct node) );
+			
 			new_node->size = req_size;
 			new_node->is_free = false;	
 			new_node->ptr_start = _worst_node->ptr_start;
@@ -122,11 +165,553 @@ void * alloc_worst(size_t req_size){
 			if(next_worst != NULL && next_worst->size > _worst_node->size){
 				_worst_node = next_worst;
 			}
-			//return new_node;
-			return new_node->ptr_start;
+			return UNIT_TEST ? (void *)new_node : (void *)new_node->ptr_start;
 		}
 	} 
 }
+
+
+
+
+
+/* Frees a block of memory previously allocated by mymalloc. */
+
+void myfree(void * block){
+	struct node * node_to_del = UNIT_TEST ? (struct node *)block : get_p_to_mem_in_list(block); 
+	if(node_to_del->size == _main_mem_size_total){
+		node_to_del->is_free = true;
+		_worst_node = _head;
+		return;
+	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == true && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == true){
+		int size_freed = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
+		if(node_to_del->prev == _worst_node){
+			_worst_node->size = size_freed;
+			_worst_node->next = node_to_del->next->next;
+			if(node_to_del->next->next != NULL){
+				node_to_del->next->next->prev = _worst_node;
+				free(node_to_del->next);
+				node_to_del->next = NULL;
+			}
+			free(node_to_del);
+			node_to_del = NULL;
+			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
+				p->i -= 2;
+			}
+			return;
+		}
+		if(node_to_del->next == _worst_node){
+			node_to_del->prev->size = size_freed;
+			node_to_del->prev->next = node_to_del->next->next; 
+			if(node_to_del->next->next != NULL){
+				node_to_del->next->next->prev = node_to_del->prev;
+				free(node_to_del->next);
+				node_to_del->next = NULL;
+			}
+			_worst_node = node_to_del->prev;
+			free(node_to_del);
+			node_to_del = NULL;
+			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
+				p->i -= 2;
+			}
+			return;
+		}
+		
+		if(_worst_node->size < size_freed){
+			_worst_node = node_to_del->prev;
+		}
+		struct node * prev = node_to_del->prev;
+		node_to_del->prev->size = size_freed;
+		node_to_del->prev->next = node_to_del->next->next; 
+		if(node_to_del->next->next != NULL){
+			node_to_del->next->next->prev = node_to_del->prev;
+			free(node_to_del->next);
+			node_to_del->next = NULL;
+		}
+		//_worst_node = node_to_del->prev;
+		free(node_to_del);
+		node_to_del = NULL;
+		for(struct node * p = prev->next; p != NULL; p = p->next){
+			p->i -= 2;
+		}
+		return;
+	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == true){
+		struct node * next_before = node_to_del->next;
+		int size_freed = node_to_del->size + node_to_del->next->size;
+		node_to_del->is_free = true;
+		node_to_del->size = size_freed;			   
+		if(node_to_del->next->next != NULL){
+			node_to_del->next->next->prev = node_to_del;
+		}
+		node_to_del->next = node_to_del->next->next;
+
+		if(node_to_del->next == _worst_node || _worst_node->size < size_freed){
+			_worst_node = node_to_del;
+		}
+		free(next_before);
+		next_before = NULL;
+		for(struct node * p = node_to_del->next; p != NULL; p = p->next){
+			p->i -= 1;
+		}
+		return;
+	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == true && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == false){
+		struct node * prev = node_to_del->prev;
+		int size_freed = node_to_del->size + node_to_del->prev->size;
+		prev->next = node_to_del->next;
+		prev->size = size_freed;
+		if(node_to_del->next->prev != NULL){
+			node_to_del->next->prev = prev;
+		}
+
+		if(prev != _worst_node && _worst_node->size < size_freed){
+			_worst_node = prev;
+		}
+		free(node_to_del);
+		node_to_del = NULL;
+		for(struct node * p = prev->next; p != NULL; p = p->next){
+			p->i -= 1;
+		}
+		return;
+	}
+
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev == _worst_node){
+
+		_worst_node->size = _worst_node->size + node_to_del->size;
+		_worst_node->next = node_to_del->next;
+		//if(node_to_del->next != NULL){
+		//	node_to_del->next->prev = _worst_node;
+		//}
+		free(node_to_del);
+		node_to_del = NULL;
+		return;
+	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next == NULL &&
+	   _worst_node == NULL){
+		_worst_node = node_to_del;
+		_worst_node->is_free = true;
+		node_to_del = NULL;
+		return;
+	}
+
+	if(node_to_del->prev != NULL &&
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next == NULL &&
+	   _worst_node != NULL){
+		if(node_to_del->size > _worst_node->size){
+			_worst_node = node_to_del;
+		}	
+		node_to_del->is_free = true;
+		//TODO: make test first and make it pass, refactor - done
+		//TODO: refactor all tests to match the new requirement:  myalloc() should return the address of the position in the memory block not pointer to the list  
+		return;
+	}
+
+
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == false &&
+	   _worst_node == NULL){
+		_worst_node = node_to_del;
+		_worst_node->is_free = true;
+		node_to_del = NULL;
+		return;
+	}
+
+	if(node_to_del->prev != NULL && 
+	   node_to_del->prev->is_free == false && 
+	   node_to_del->next != NULL &&
+	   node_to_del->next->is_free == false &&
+	   _worst_node != NULL){
+		if(node_to_del->size > _worst_node->size){
+			_worst_node = node_to_del;
+		}	
+		node_to_del->is_free = true;
+		return;
+	}
+
+	if(node_to_del->prev == NULL && 
+	   node_to_del->next != NULL && node_to_del->next == _worst_node){
+		
+		node_to_del->i = 0;
+		node_to_del->is_free = true;
+		node_to_del->next = NULL;
+		node_to_del->prev = NULL;
+		node_to_del->ptr_start = _main_mem;
+		node_to_del->size = _main_mem_size_total;
+		
+		free(_worst_node);
+		_worst_node = NULL;
+
+		_worst_node = _head;
+		return;
+	}
+
+	if(node_to_del->prev == NULL && 
+	   node_to_del->next != NULL && 
+	   node_to_del->next->is_free == true){
+		
+		//no change
+		node_to_del->i = 0;
+		node_to_del->prev = NULL;
+		node_to_del->ptr_start = _main_mem;
+
+
+		node_to_del->is_free = true;
+		node_to_del->size = node_to_del->size + node_to_del->next->size;
+		struct node * next = node_to_del->next;
+		node_to_del->next = node_to_del->next->next;
+		node_to_del->next->prev = node_to_del;
+		free(next);
+		next = NULL;
+
+		for(struct node * p = node_to_del->next; p != NULL; p = p->next){
+			p->i -= 1;
+		}
+
+		if(node_to_del->size > _worst_node->size){
+			_worst_node = node_to_del;
+		}
+
+		return;
+	}
+
+	if(node_to_del->prev == NULL && 
+	   node_to_del->next != NULL && 
+	   node_to_del->next->is_free == false){
+
+		node_to_del->i = 0;
+		node_to_del->is_free = true;
+		node_to_del->ptr_start = _main_mem;
+
+		if(_worst_node == NULL || 
+			(_worst_node != NULL && _worst_node->size < node_to_del->size)){
+			
+			_worst_node = node_to_del;
+			return;
+		}
+		if(_worst_node != NULL &&
+			_worst_node->size > node_to_del->size){
+			return;
+		}
+		return;
+	}
+
+
+
+
+
+	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
+
+	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
+	return;
+}
+
+void given_block_bigger_than_max_requested_return_null(){
+	void *a;
+	strategies strat = Worst;		
+	initmem(strat,500); //free old mamory if any and alocate new main memory block
+
+	//act
+	a = mymalloc(501);
+
+	//assert
+	assert( a==NULL && "My first unit test in c" );
+    
+	free(_main_mem);
+}
+/* initmem must be called prior to mymalloc and myfree.
+
+   initmem may be called more than once in a given exeuction;
+   when this occurs, all memory you previously malloc'ed  *must* be freed,
+   including any existing bookkeeping data.
+
+   strategy must be one of the following:
+		- "best" (best-fit)
+		- "worst" (worst-fit)
+		- "first" (first-fit)
+		- "next" (next-fit)
+   sz specifies the number of bytes that will be available, in total, for all mymalloc requests.
+*/
+
+void initmem(strategies strategy, size_t size){
+	_strategy = strategy;
+
+	/* All implementations will need an actual block of memory to use */
+	_main_mem_size_total = size;
+
+	if (_main_mem != NULL){
+		free(_main_mem); /* in case this is not the first time initmem2 is called */
+		_main_mem = NULL;
+	} 
+	/* Release any other memory you were using for bookkeeping when doing a re-initialization! */
+	while (_head != NULL){
+		void * tmp = _head;
+		_head = _head->next;
+		free(tmp);
+		tmp = NULL; //make it a habit
+	}
+		
+	/* Initialize memory management structure. */
+	_main_mem = (char *)calloc(size, sizeof(char));
+				
+	_head = calloc(1, sizeof(struct node));
+	_head->i = 0;
+	_head->is_free = true;
+	_head->ptr_start = _main_mem;
+	_head->size = size;
+	_head->next = NULL;
+	_head->prev = NULL;
+	
+	_worst_node = _head;
+}
+
+/* Allocate a block of memory with the requested size.
+ *  If the requested block is not available, mymalloc returns NULL.
+ *  Otherwise, it returns a pointer to the newly allocated block.
+ *  Restriction: requested >= 1 
+ */
+
+void *mymalloc(size_t requested)
+{
+	assert((int)_strategy > 0);
+	
+	switch (_strategy)
+	  {
+	  case NotSet: 
+	            return NULL;
+	  case First:
+	            return NULL;
+	  case Best:
+	            return NULL;
+	  case Worst:
+	            return alloc_worst(requested);
+	  case Next:
+	            return NULL;
+	  }
+	return NULL;
+}
+
+
+
+/****** Memory status/property functions ******
+ * Implement these functions.
+ * Note that when refered to "memory" here, it is meant that the 
+ * memory pool this module manages via initmem/mymalloc/myfree. 
+ */
+
+/* Get the number of contiguous areas of free space in memory. */
+int mem_holes(){
+	int holes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free) 
+			holes++;
+	}
+	return holes;
+}
+
+/* Get the number of bytes allocated */
+int mem_allocated(){
+	int bytes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(!p->is_free) 
+			bytes += p->size;
+	}
+	return bytes;
+}
+
+/* Number of non-allocated bytes */
+int mem_free(){
+	int bytes = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free) 
+			bytes += p->size;
+	}
+	return bytes;
+}
+
+/* Number of bytes in the largest contiguous area of unallocated memory */
+int mem_largest_free(){
+	if(_worst_node != NULL)
+		return _worst_node->size;
+	return 0;
+}
+
+/* Number of free blocks smaller than "size" bytes. */
+int mem_small_free(int size){
+	int blocks = 0;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		if(p->is_free && p->size < size) 
+			blocks++;
+	}
+	return blocks;
+}       
+
+char mem_is_alloc(void *ptr){
+	char * l = (char *) ptr;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		char * low = p->ptr_start;
+		char * high = p->ptr_start + p->size;
+		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
+		if(low <= l && l < high){
+			return !p->is_free;
+		} 		
+	}	
+	return -1;
+}
+
+struct node * get_p_to_mem_in_list(void *ptr){
+	char * l = (char *) ptr;
+	for(struct node * p = _head; p != NULL; p = p->next){
+		char * low = p->ptr_start;
+		char * high = p->ptr_start + p->size;
+		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
+		if(low <= l && l < high){
+			return p;
+		} 		
+	}	
+	return NULL;
+}
+
+/* 
+ * Feel free to use these functions, but do not modify them.  
+ * The test code uses them, but you may find them useful.
+ */
+
+
+//Returns a pointer to the memory pool.
+void *mem_pool()
+{
+	return _main_mem;
+}
+
+// Returns the total number of bytes in the memory pool. */
+int mem_total()
+{
+	return _main_mem_size_total;
+}
+
+
+// Get string name for a strategy. 
+char *strategy_name(strategies strategy)
+{
+	switch (strategy)
+	{
+		case Best:
+			return "best";
+		case Worst:
+			return "worst";
+		case First:
+			return "first";
+		case Next:
+			return "next";
+		default:
+			return "unknown";
+	}
+}
+
+// Get strategy from name.
+strategies strategyFromString(char * strategy)
+{
+	if (!strcmp(strategy,"best"))
+	{
+		return Best;
+	}
+	else if (!strcmp(strategy,"worst"))
+	{
+		return Worst;
+	}
+	else if (!strcmp(strategy,"first"))
+	{
+		return First;
+	}
+	else if (!strcmp(strategy,"next"))
+	{
+		return Next;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+
+/* 
+ * These functions are for you to modify however you see fit.  These will not
+ * be used in tests, but you may find them useful for debugging.
+ */
+
+/* Use this function to print out the current contents of memory. */
+void print_memory()
+{
+	print_my_list();
+	return;
+}
+
+void print_memory_to_log(FILE *log)
+{
+	print_my_list_to_log(log);
+	return;
+}
+
+/* Use this function to track memory allocation performance.  
+ * This function does not depend on your implementation, 
+ * but on the functions you wrote above.
+ */ 
+void print_memory_status()
+{
+	printf("%d out of %d bytes allocated.\n",mem_allocated(),mem_total());
+	printf("%d bytes are free in %d holes; maximum allocatable block is %d bytes.\n",mem_free(),mem_holes(),mem_largest_free());
+	printf("Average hole size is %f.\n\n",((float)mem_free())/mem_holes());
+}
+
+/* Use this function to see what happens when your malloc and free
+ * implementations are called.  Run "mem -try <args>" to call this function.
+ * We have given you a simple example to start.
+ */
+
+void try_mymem(int argc, char **argv) {
+    void *a, *b, *c, *d, *e;
+	strategies strat = argc > 1 ? strategyFromString(argv[1]) : First; 
+		
+	/* A simple example.  
+	   Each algorithm should produce a different layout. */
+	
+	initmem(strat,500); //free old mamory if any and alocate new main memory block
+	
+	a = mymalloc(100);
+	b = mymalloc(100);
+	c = mymalloc(100);
+	myfree(b);
+	d = mymalloc(50);
+	myfree(a);
+	e = mymalloc(25);
+	print_my_list();
+	print_memory();
+	print_memory_status();
+	
+}
+
+
+
 
 void d(int req_size){
 	struct node * next_worst = getNextWorst();
@@ -152,8 +737,6 @@ void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
 	assert( _worst_node->size == block_size && "Worst block has the same size as the total");
 	assert( _worst_node->ptr_start == _main_mem && "Worst block points to the first location in main memory");
 
-	//clean
-	//clean_up();
 }
 
 void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
@@ -169,9 +752,6 @@ void givenBlockSizeIsMaxRequested_returnNodeMaxSize(){
 	assert( node_req->is_free == false && "The block is free" );
     assert( node_req->size == block_size && "The block is of given size");
 	assert( _worst_node == NULL && "There is now worst node - NULL");
-	
-	//clean
-	//clean_up();
 }
 
 void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
@@ -187,9 +767,6 @@ void givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL(){
 	//assert
 	assert( node_req == NULL && "No Memory left - node_req" );
 	assert( _worst_node == NULL && "No Memory left - _worst_node" );
-    
-	//clean
-	//clean_up();
 }
 
 void givenRequestMoemoryMoreThanAvailable_returnNULL(){
@@ -205,9 +782,6 @@ void givenRequestMoemoryMoreThanAvailable_returnNULL(){
 	//assert
 	assert( node_req == NULL && "Memory left but not enough to alocate - node_req == NULL" );
 	assert( _worst_node != NULL && "Memory left but not enough - _worst_node != NULL" );
-    
-	//clean
-	//clean_up();
 }
 
 void givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL(){
@@ -228,15 +802,22 @@ void givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL(){
 	assert( _worst_node != NULL && "_worst_node != NULL");
     assert( _worst_node->prev == node_req && "_worst_node->prev == node_req");
 	assert( _worst_node->size == block_size - req_size && "_worst_node->size == block_size - req_size");
-    
-	//clean
-	//clean_up();
 }
 
 void print_my_list(){
 	printf("\n_memory starts = %p\n", &_main_mem);
 	for(struct node * p = _head; p != NULL; p = p->next)
 		printf("\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
+				p->is_free?"true":"false", 
+				p->size,
+				p->ptr_start,//&p->ptr_start,
+				p->i);
+}
+
+void print_my_list_to_log(FILE *log){
+	fprintf(log,"\n_memory starts = %p\n", &_main_mem);
+	for(struct node * p = _head; p != NULL; p = p->next)
+		fprintf(log,"\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
 				p->is_free?"true":"false", 
 				p->size,
 				p->ptr_start,//&p->ptr_start,
@@ -268,9 +849,6 @@ void given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoF
 
 	assert( _head == node_req01 && "_head == node_req01");
 	assert( _worst_node == NULL && "_worst_node == NULL");
-	
-	//clean
-	//clean_up();
 }
 
 void given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory(){
@@ -306,9 +884,6 @@ void given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoF
 
 	assert( _head == node_req01 && "_head == node_req01");
 	assert( _worst_node == NULL && "_worst_node == NULL");
-	
-	//clean
-	//clean_up();
 }
 
 void given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory(){
@@ -1580,7 +2155,45 @@ void givenFreeBlockAndPointerInIt_returnBlockIsFree(){
 	assert(is_alloc02 == 0 && "It is alocated == 1, is not alocated == 0");
 }
 
-int nothing(){
+
+void givenCreate10EqualBlocksAndFreeEverySecond_returnCorrectLocationsToFreedBlocksInMemory(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 10;		
+	initmem(strat, block_size);
+
+	int req_size01 = 1, req_size02 = 1, req_size03 = 1, req_size04 = 1,req_size05 = 1;
+	int req_size06 = 1, req_size07 = 1, req_size08 = 1, req_size09 = 1, req_size10 = 1;
+	
+	char * node01_loc = (char *)mymalloc(req_size01);
+	char * node02_loc = (char *)mymalloc(req_size02);
+	char * node03_loc = (char *)mymalloc(req_size03);
+	char * node04_loc = (char *)mymalloc(req_size04);
+	char * node05_loc = (char *)mymalloc(req_size05);
+	char * node06_loc = (char *)mymalloc(req_size06);
+	char * node07_loc = (char *)mymalloc(req_size07);
+	char * node08_loc = (char *)mymalloc(req_size08);
+	char * node09_loc = (char *)mymalloc(req_size09);
+	char * node10_loc = (char *)mymalloc(req_size10);
+	
+	myfree(node02_loc);
+	myfree(node04_loc);
+	myfree(node06_loc);
+	myfree(node08_loc);
+	myfree(node10_loc);
+	//printf("\n%s\n","After Setup");
+	print_my_list();
+	/*
+	//act
+	char is_alloc01 = mem_is_alloc(_worst_node->ptr_start);
+	char is_alloc02 = mem_is_alloc(_worst_node->ptr_start + 5);
+	//assert
+	assert(is_alloc01 == 0 && "It is alocated == 1, is not alocated == 0");
+	assert(is_alloc02 == 0 && "It is alocated == 1, is not alocated == 0");*/
+}
+
+
+int last_test_main_loop(){
 		strategies strat = Worst;
 		void* lastPointer = NULL;
 		initmem(strat,100);
@@ -1599,593 +2212,207 @@ int nothing(){
 		return 0;
 }
 
-void clean_up(){
-	//free(_main_mem);
-	//free_list_from_head();
-	_worst_node = NULL;
-	_head = NULL;
-	//_main_mem = NULL;
-}
-int main2(){
-	//char * arr[] = {"","worst"};
-	//try_mymem(2, arr);
-	nothing();
-	givenFreeBlockAndPointerInIt_returnBlockIsFree();
-	givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
+void givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 1500;		
+	initmem(strat, block_size);
 
-	givenMoreThanOneHoles_returnHolesCount();
-	givenOneHole_returnOneHole();
-	givenZeroHoles_returnZeroHoles();
+	int req_size01 = 100; 
+	int req_size02 = 200; 
+	int req_size03 = 300;
+	int req_size04 = 400; 
+	int req_size05 = 500;
 	
-	givenCreateNewWorstByCallingMymalloc_returnNextWorstIsChosen();
-	givenFreeTheSecondBlockSoThatItBecomesWorstAndAlocateANewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
-	givenFreeTheFirstBlockSoThatItBecomesWorstAndAlocateNewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
-
-	givenRemovefTotalSizeBiggerThenWorst_returnNewBlockIsWorst();
-	givenFreeMiddleBlockBetweenFreedBlocksInHeadInTotalBiggerThanWorst_returnWorstInHead();
-	givenFreeBlockAfterNotFreedAndBeforeFreedAwayFromWorstAndBiggerThanWorst_returnBlockIsMergedWithNextFreeBlockAndIsTheNewWorst();
-	givenFreeBlockAfterNotFreedAndBeforeFreedAwayFromWorstAndLessThanWorst_returnBlockIsMergedWithNextFreeBlock();
-	givenFreeBlockBeforeWorstAndAfterNotFreed_returnFreedBlockMergedWithWorst();
-	givenFreeBlockBetweenFreedBlocksInMiddleOfListButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock();
-	givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock();
-	givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockLessThanWorst_returnWorstUnchangedNewBiggerFreedBlockInsteadOfTheTreeBlocks();
-
-	givenAddThreeBlocksFreeSecondAndThenThirdInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnFirstIsThereSecondIsWorst();
-	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnInitialState();
-	givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotal_returnInitialState();
-	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead();	
-	givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstNotChanged();	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockSmallerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsNotChangedBlock();
-	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock();
-
-	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondAndLastAreThereNotFreed();
-	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheLastBlock_returnTheLastIsFreedAndTheFirstAndSecondAreThereNotFreed();
-	givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreed();
-	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocksInReverseOrder_returnTheInitialStatus();
-	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstIsThereNotFreed();
-	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitialStatus();
-	givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondIsThereNotFreed();
-	givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus();
-	givenAddOneBlockMaxSizeAndRemoveTheBlock_returnInitialStatus();
+	char * node01_loc = (char *)mymalloc(req_size01);
+	char * node02_loc = (char *)mymalloc(req_size02);
+	char * node03_loc = (char *)mymalloc(req_size03);
+	char * node04_loc = (char *)mymalloc(req_size04);
+	char * node05_loc = (char *)mymalloc(req_size05);
 	
-	given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory();
-	given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory();
-	given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory();
-	givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL();
-	givenRequestMoemoryMoreThanAvailable_returnNULL();
-	givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
-	givenBlockSizeIsMaxRequested_returnNodeMaxSize();
-	givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
-	return 0;
-}
-struct node * get_p_to_mem_in_list(void *);
-/* Frees a block of memory previously allocated by mymalloc. */
-void myfree(void * block)
-{
-	struct node * node_to_del = get_p_to_mem_in_list(block);//(struct node *)block; 
-	if(node_to_del->size == _main_mem_size_total){
-		node_to_del->is_free = true;
-		_worst_node = _head;
-		return;
+	myfree(node02_loc);
+	myfree(node04_loc);
+
+	char * node_new = (char *)mymalloc(600);
+	if(node_new == NULL){
+		printf("\nnode_new == NULL\n");
 	}
-
-
-	if(node_to_del->prev != NULL &&
-	   node_to_del->prev->is_free == true && 
-	   node_to_del->next != NULL &&
-	   node_to_del->next->is_free == true){
-		int size_freed = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
-		if(node_to_del->prev == _worst_node){
-			_worst_node->size = size_freed;
-			_worst_node->next = node_to_del->next->next;
-			if(node_to_del->next->next != NULL){
-				node_to_del->next->next->prev = _worst_node;
-				free(node_to_del->next);
-				node_to_del->next = NULL;
-			}
-			free(node_to_del);
-			node_to_del = NULL;
-			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
-				p->i -= 2;
-			}
-			return;
-		}
-		if(node_to_del->next == _worst_node){
-			node_to_del->prev->size = size_freed;
-			node_to_del->prev->next = node_to_del->next->next; 
-			if(node_to_del->next->next != NULL){
-				node_to_del->next->next->prev = node_to_del->prev;
-				free(node_to_del->next);
-				node_to_del->next = NULL;
-			}
-			_worst_node = node_to_del->prev;
-			free(node_to_del);
-			node_to_del = NULL;
-			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
-				p->i -= 2;
-			}
-			return;
-		}
-		
-		if(_worst_node->size < size_freed){
-			_worst_node = node_to_del->prev;
-		}
-		struct node * prev = node_to_del->prev;
-		node_to_del->prev->size = size_freed;
-		node_to_del->prev->next = node_to_del->next->next; 
-		if(node_to_del->next->next != NULL){
-			node_to_del->next->next->prev = node_to_del->prev;
-			free(node_to_del->next);
-			node_to_del->next = NULL;
-		}
-		//_worst_node = node_to_del->prev;
-		free(node_to_del);
-		node_to_del = NULL;
-		for(struct node * p = prev->next; p != NULL; p = p->next){
-			p->i -= 2;
-		}
-		return;
-	}
-
-	if(node_to_del->prev != NULL &&
-	   node_to_del->prev->is_free == false && 
-	   node_to_del->next != NULL &&
-	   node_to_del->next->is_free == true){
-		struct node * next_before = node_to_del->next;
-		int size_freed = node_to_del->size + node_to_del->next->size;
-		node_to_del->is_free = true;
-		node_to_del->size = size_freed;			   
-		if(node_to_del->next->next != NULL){
-			node_to_del->next->next->prev = node_to_del;
-		}
-		node_to_del->next = node_to_del->next->next;
-
-		if(node_to_del->next == _worst_node || _worst_node->size < size_freed){
-			_worst_node = node_to_del;
-		}
-		free(next_before);
-		next_before = NULL;
-		for(struct node * p = node_to_del->next; p != NULL; p = p->next){
-			p->i -= 1;
-		}
-		return;
-	}
-
-	if(node_to_del->prev != NULL &&
-	   node_to_del->prev->is_free == true && 
-	   node_to_del->next != NULL &&
-	   node_to_del->next->is_free == false){
-		struct node * prev = node_to_del->prev;
-		int size_freed = node_to_del->size + node_to_del->prev->size;
-		prev->next = node_to_del->next;
-		prev->size = size_freed;
-		if(node_to_del->next->prev != NULL){
-			node_to_del->next->prev = prev;
-		}
-
-		if(prev != _worst_node && _worst_node->size < size_freed){
-			_worst_node = prev;
-		}
-		free(node_to_del);
-		node_to_del = NULL;
-		for(struct node * p = prev->next; p != NULL; p = p->next){
-			p->i -= 1;
-		}
-		return;
-	}
-
-	if(node_to_del->prev != NULL && 
-	   node_to_del->prev == _worst_node){
-
-		_worst_node->size = _worst_node->size + node_to_del->size;
-		_worst_node->next = node_to_del->next;
-		//if(node_to_del->next != NULL){
-		//	node_to_del->next->prev = _worst_node;
-		//}
-		free(node_to_del);
-		node_to_del = NULL;
-		return;
-	}
-
-	if(node_to_del->prev != NULL &&
-	   node_to_del->prev->is_free == false && 
-	   node_to_del->next == NULL &&
-	   _worst_node == NULL){
-		_worst_node = node_to_del;
-		_worst_node->is_free = true;
-		node_to_del = NULL;
-		return;
-	}
-
-	if(node_to_del->prev != NULL &&
-	   node_to_del->prev->is_free == true && 
-	   node_to_del->next == NULL &&
-	   _worst_node != NULL){
-		//TODO: make test first and make it pass, refactor
-		//TODO: refactor all tests to match the new requirement:  myalloc() should return the address of the position in the memory block not pointer to the list  
-		return;
-	}
-
-
-	if(node_to_del->prev != NULL && 
-	   node_to_del->prev->is_free == false && 
-	   node_to_del->next != NULL &&
-	   node_to_del->next->is_free == false &&
-	   _worst_node == NULL){
-		_worst_node = node_to_del;
-		_worst_node->is_free = true;
-		node_to_del = NULL;
-		return;
-	}
-
-	if(node_to_del->prev != NULL && 
-	   node_to_del->prev->is_free == false && 
-	   node_to_del->next != NULL &&
-	   node_to_del->next->is_free == false &&
-	   _worst_node != NULL){
-		if(node_to_del->size > _worst_node->size){
-			_worst_node = node_to_del;
-		}	
-		node_to_del->is_free = true;
-		return;
-	}
-
-	if(node_to_del->prev == NULL && 
-	   node_to_del->next != NULL && node_to_del->next == _worst_node){
-		
-		node_to_del->i = 0;
-		node_to_del->is_free = true;
-		node_to_del->next = NULL;
-		node_to_del->prev = NULL;
-		node_to_del->ptr_start = _main_mem;
-		node_to_del->size = _main_mem_size_total;
-		
-		free(_worst_node);
-		_worst_node = NULL;
-
-		_worst_node = _head;
-		return;
-	}
-
-	if(node_to_del->prev == NULL && 
-	   node_to_del->next != NULL && 
-	   node_to_del->next->is_free == true){
-		
-		//no change
-		node_to_del->i = 0;
-		node_to_del->prev = NULL;
-		node_to_del->ptr_start = _main_mem;
-
-
-		node_to_del->is_free = true;
-		node_to_del->size = node_to_del->size + node_to_del->next->size;
-		struct node * next = node_to_del->next;
-		node_to_del->next = node_to_del->next->next;
-		node_to_del->next->prev = node_to_del;
-		free(next);
-		next = NULL;
-
-		for(struct node * p = node_to_del->next; p != NULL; p = p->next){
-			p->i -= 1;
-		}
-
-		if(node_to_del->size > _worst_node->size){
-			_worst_node = node_to_del;
-		}
-
-		return;
-	}
-
-	if(node_to_del->prev == NULL && 
-	   node_to_del->next != NULL && 
-	   node_to_del->next->is_free == false){
-
-		node_to_del->i = 0;
-		node_to_del->is_free = true;
-		node_to_del->ptr_start = _main_mem;
-
-		if(_worst_node == NULL || 
-			(_worst_node != NULL && _worst_node->size < node_to_del->size)){
-			
-			_worst_node = node_to_del;
-			return;
-		}
-		if(_worst_node != NULL &&
-			_worst_node->size > node_to_del->size){
-			return;
-		}
-		return;
-	}
-
-
-
-
-
-	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
-
-	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
-	return;
-}
-
-void given_block_bigger_than_max_requested_return_null(){
-	void *a;
-	strategies strat = Worst;		
-	initmem(strat,500); //free old mamory if any and alocate new main memory block
-
+	//printf("\n%s\n","After Setup");
+	print_my_list();
+	/*
 	//act
-	a = mymalloc(501);
-
+	char is_alloc01 = mem_is_alloc(_worst_node->ptr_start);
+	char is_alloc02 = mem_is_alloc(_worst_node->ptr_start + 5);
 	//assert
-	assert( a==NULL && "My first unit test in c" );
-    
-	free(_main_mem);
+	assert(is_alloc01 == 0 && "It is alocated == 1, is not alocated == 0");
+	assert(is_alloc02 == 0 && "It is alocated == 1, is not alocated == 0");*/
 }
-/* initmem must be called prior to mymalloc and myfree.
 
-   initmem may be called more than once in a given exeuction;
-   when this occurs, all memory you previously malloc'ed  *must* be freed,
-   including any existing bookkeeping data.
 
-   strategy must be one of the following:
-		- "best" (best-fit)
-		- "worst" (worst-fit)
-		- "first" (first-fit)
-		- "next" (next-fit)
-   sz specifies the number of bytes that will be available, in total, for all mymalloc requests.
-*/
+int main2(){
+	//givenCreate10EqualBlocksAndFreeEverySecond_returnCorrectLocationsToFreedBlocksInMemory();
+	
+	if(UNIT_TEST){
+		//givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest();
+		//last_test_main_loop()();
 
-void initmem(strategies strategy, size_t size){
-	_strategy = strategy;
+		givenFreeBlockAndPointerInIt_returnBlockIsFree();
+		givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
 
-	/* All implementations will need an actual block of memory to use */
-	_main_mem_size_total = size;
-
-	if (_main_mem != NULL){
-		free(_main_mem); /* in case this is not the first time initmem2 is called */
-		_main_mem = NULL;
-	} 
-	/* Release any other memory you were using for bookkeeping when doing a re-initialization! */
-	while (_head != NULL){
-		void * tmp = _head;
-		_head = _head->next;
-		free(tmp);
-		tmp = NULL; //make it a habit
-	}
+		givenMoreThanOneHoles_returnHolesCount();
+		givenOneHole_returnOneHole();
+		givenZeroHoles_returnZeroHoles();
 		
-	/* Initialize memory management structure. */
-	_main_mem = (char *)calloc(size, sizeof(char));
-				
-	_head = calloc(1, sizeof(struct node));
-	_head->i = 0;
-	_head->is_free = true;
-	_head->ptr_start = _main_mem;
-	_head->size = size;
-	_head->next = NULL;
-	_head->prev = NULL;
-	
-	_worst_node = _head;
-}
+		givenCreateNewWorstByCallingMymalloc_returnNextWorstIsChosen();
+		givenFreeTheSecondBlockSoThatItBecomesWorstAndAlocateANewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
+		givenFreeTheFirstBlockSoThatItBecomesWorstAndAlocateNewBlock_returnTheBlockIsAlocatedFromTheNewWorst();
 
-/* Allocate a block of memory with the requested size.
- *  If the requested block is not available, mymalloc returns NULL.
- *  Otherwise, it returns a pointer to the newly allocated block.
- *  Restriction: requested >= 1 
- */
+		givenRemovefTotalSizeBiggerThenWorst_returnNewBlockIsWorst();
+		givenFreeMiddleBlockBetweenFreedBlocksInHeadInTotalBiggerThanWorst_returnWorstInHead();
+		givenFreeBlockAfterNotFreedAndBeforeFreedAwayFromWorstAndBiggerThanWorst_returnBlockIsMergedWithNextFreeBlockAndIsTheNewWorst();
+		givenFreeBlockAfterNotFreedAndBeforeFreedAwayFromWorstAndLessThanWorst_returnBlockIsMergedWithNextFreeBlock();
+		givenFreeBlockBeforeWorstAndAfterNotFreed_returnFreedBlockMergedWithWorst();
+		givenFreeBlockBetweenFreedBlocksInMiddleOfListButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock();
+		givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockBiggerThanWorst_returnWorstIsTheNewBiggerFreedBlock();
+		givenFreeBlockBetweenFreedBlocksButNotTheWorstSoThatNewBlockLessThanWorst_returnWorstUnchangedNewBiggerFreedBlockInsteadOfTheTreeBlocks();
 
-void *mymalloc(size_t requested)
-{
-	assert((int)_strategy > 0);
-	
-	switch (_strategy)
-	  {
-	  case NotSet: 
-	            return NULL;
-	  case First:
-	            return NULL;
-	  case Best:
-	            return NULL;
-	  case Worst:
-	            return alloc_worst(requested);
-	  case Next:
-	            return NULL;
-	  }
-	return NULL;
-}
+		givenAddThreeBlocksFreeSecondAndThenThirdInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnFirstIsThereSecondIsWorst();
+		givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotalSoThatWorstIsInEnd_returnInitialState();
+		givenAddThreeBlocksFreeSecondAndThenFirstThenLastInTotalSizeLessThanTotal_returnInitialState();
+		givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeBiggerThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstChangedToHead();	
+		givenAddThreeBlocksFreeSecondAndThenFirstInTotalSizeLessThanWorst_returnHeadBlockOfNewSizeSumOfFirstAndSecondAndFreedAndWorstNotChanged();	givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockSmallerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsNotChangedBlock();
+		givenAddThreeBlocksOfTotalSizeLessThenTheMaxAndFreeTheSecondBlockBiggerThanTheCurrentWorst_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreedAndWorstIsTheFreedSecondBlock();
 
-
-
-/****** Memory status/property functions ******
- * Implement these functions.
- * Note that when refered to "memory" here, it is meant that the 
- * memory pool this module manages via initmem/mymalloc/myfree. 
- */
-
-/* Get the number of contiguous areas of free space in memory. */
-int mem_holes(){
-	int holes = 0;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		if(p->is_free) 
-			holes++;
+		givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondAndLastAreThereNotFreed();
+		givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheLastBlock_returnTheLastIsFreedAndTheFirstAndSecondAreThereNotFreed();
+		givenAddThreeBlocksOfTotalSizeToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstAndLastAreThereNotFreed();
+		givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocksInReverseOrder_returnTheInitialStatus();
+		givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheSecondBlock_returnTheSecondIsFreedAndTheFirstIsThereNotFreed();
+		givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheBlocks_returnTheInitialStatus();
+		givenAddTwoBlocksOfTotalSizeEqualToTheMaxAndRemoveTheFirstBlock_returnTheFirstIsFreedAndTheSecondIsThereNotFreed();
+		givenAddOneBlockOfSizeLessThanMaxAndRemoveTheBlock_returnInitialStatus();
+		givenAddOneBlockMaxSizeAndRemoveTheBlock_returnInitialStatus();
+		
+		given4BlocksRequestedOfTotalSizeOfTheTotalMemory_return4NodesCreatedWithNoFreeSpaceInMemory();
+		given3BlocksRequestedOfTotalSizeOfTheTotalMemory_return3NodesCreatedWithNoFreeSpaceInMemory();
+		given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory();
+		givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL();
+		givenRequestMoemoryMoreThanAvailable_returnNULL();
+		givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
+		givenBlockSizeIsMaxRequested_returnNodeMaxSize();
+		givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
+		
+	}else
+	{
+	//do_randomized_test(strategyToUse, totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
+		my_do_randomized_test(Worst,      10000,     0.25,      1,            3000,         10000);
 	}
-	return holes;
-}
-
-/* Get the number of bytes allocated */
-int mem_allocated(){
-	int bytes = 0;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		if(!p->is_free) 
-			bytes += p->size;
-	}
-	return bytes;
-}
-
-/* Number of non-allocated bytes */
-int mem_free()
-{
-	int bytes = 0;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		if(p->is_free) 
-			bytes += p->size;
-	}
-	return bytes;
-}
-
-/* Number of bytes in the largest contiguous area of unallocated memory */
-int mem_largest_free(){
-	if(_worst_node != NULL)
-		return _worst_node->size;
 	return 0;
 }
 
-/* Number of free blocks smaller than "size" bytes. */
-int mem_small_free(int size){
-	int blocks = 0;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		if(p->is_free && p->size < size) 
-			blocks++;
-	}
-	return blocks;
-}       
-
-char mem_is_alloc(void *ptr){
-	char * l = (char *) ptr;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		char * low = p->ptr_start;
-		char * high = p->ptr_start + p->size;
-		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
-		if(low <= l && l < high){
-			return !p->is_free;
-		} 		
-	}	
-	return -1;
-}
-
-struct node * get_p_to_mem_in_list(void *ptr){
-	char * l = (char *) ptr;
-	for(struct node * p = _head; p != NULL; p = p->next){
-		char * low = p->ptr_start;
-		char * high = p->ptr_start + p->size;
-		//printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
-		if(p->i == 99){
-			printf("\nlow = %p, l = %p, high = %p, main_start = %p\n", low, l, high, _main_mem);
-		}
-		if(low <= l && l < high){
-			return p;
-		} 		
-	}	
-	return NULL;
-}
-
-/* 
- * Feel free to use these functions, but do not modify them.  
- * The test code uses them, but you may find them useful.
- */
-
-
-//Returns a pointer to the memory pool.
-void *mem_pool()
+void my_do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int minBlockSize, int maxBlockSize, int iterations)
 {
-	return _main_mem;
-}
+	printf("\n%s\n", "Check tests.log for the resut!");
+	void * pointers[10000];
+	int storedPointers = 0;
+	int strategy;
+	int lbound = 1;
+	int ubound = 4;
+	int smallBlockSize = maxBlockSize/10;
 
-// Returns the total number of bytes in the memory pool. */
-int mem_total()
-{
-	return _main_mem_size_total;
-}
+	if (strategyToUse>0)
+		lbound=ubound=strategyToUse;
 
-
-// Get string name for a strategy. 
-char *strategy_name(strategies strategy)
-{
-	switch (strategy)
-	{
-		case Best:
-			return "best";
-		case Worst:
-			return "worst";
-		case First:
-			return "first";
-		case Next:
-			return "next";
-		default:
-			return "unknown";
+	FILE *log;
+	log = fopen("tests.log","a");
+	if(log == NULL) {
+	  perror("Can't append to log file.\n");
+	  return;
 	}
-}
 
-// Get strategy from name.
-strategies strategyFromString(char * strategy)
-{
-	if (!strcmp(strategy,"best"))
+	fprintf(log,"Running randomized tests: pool size == %d, fill ratio == %f, block size is from %d to %d, %d iterations\n",totalSize,fillRatio,minBlockSize,maxBlockSize,iterations);
+
+	fclose(log);
+
+	for (strategy = lbound; strategy <= ubound; strategy++)
 	{
-		return Best;
-	}
-	else if (!strcmp(strategy,"worst"))
-	{
-		return Worst;
-	}
-	else if (!strcmp(strategy,"first"))
-	{
-		return First;
-	}
-	else if (!strcmp(strategy,"next"))
-	{
-		return Next;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-
-/* 
- * These functions are for you to modify however you see fit.  These will not
- * be used in tests, but you may find them useful for debugging.
- */
-
-/* Use this function to print out the current contents of memory. */
-void print_memory()
-{
-	print_my_list();
-	return;
-}
-
-/* Use this function to track memory allocation performance.  
- * This function does not depend on your implementation, 
- * but on the functions you wrote above.
- */ 
-void print_memory_status()
-{
-	printf("%d out of %d bytes allocated.\n",mem_allocated(),mem_total());
-	printf("%d bytes are free in %d holes; maximum allocatable block is %d bytes.\n",mem_free(),mem_holes(),mem_largest_free());
-	printf("Average hole size is %f.\n\n",((float)mem_free())/mem_holes());
-}
-
-/* Use this function to see what happens when your malloc and free
- * implementations are called.  Run "mem -try <args>" to call this function.
- * We have given you a simple example to start.
- */
-
-void try_mymem(int argc, char **argv) {
-    void *a, *b, *c, *d, *e;
-	strategies strat = argc > 1 ? strategyFromString(argv[1]) : First; 
+		double sum_largest_free = 0;
+		double sum_hole_size = 0;
+		double sum_allocated = 0;
+		int failed_allocations = 0;
+		double sum_small = 0;
+		struct timespec execstart, execend;
+		int force_free = 0;
+		int i;
+		storedPointers = 0;
+		log = fopen("tests.log","a");
 		
-	/* A simple example.  
-	   Each algorithm should produce a different layout. */
-	
-	initmem(strat,500); //free old mamory if any and alocate new main memory block
-	
-	a = mymalloc(100);
-	b = mymalloc(100);
-	c = mymalloc(100);
-	myfree(b);
-	d = mymalloc(50);
-	myfree(a);
-	e = mymalloc(25);
-	print_my_list();
-	print_memory();
-	print_memory_status();
-	
-}
+		initmem(strategy,totalSize);
 
+		clock_gettime(CLOCK_REALTIME, &execstart);
+
+		for (i = 0; i < iterations; i++)
+		{
+			if ( (i % 10000)==0 )
+				srand ( time(NULL) );
+			if (!force_free && (mem_free() > (totalSize * (1-fillRatio))))
+			{
+				int newBlockSize = (rand()%(maxBlockSize-minBlockSize+1))+minBlockSize;
+				/* allocate */
+				void * pointer = mymalloc(newBlockSize);
+				if (pointer != NULL)
+					pointers[storedPointers++] = pointer;
+				else
+				{ 
+					fprintf(log,"\ntotalSize = %d, fillRatio = %.2f, minBlockSize = %d, maxBlockSize = %d, iterations = %d\n", totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
+					fprintf(log,"\nnewBlockSize = %d, i = %d\n", newBlockSize, i);
+					failed_allocations++;
+					force_free = 1;
+				}
+			}
+			else
+			{
+				int chosen;
+				void * pointer;
+
+				/* free */
+				force_free = 0;
+
+				if (storedPointers == 0)
+					continue;
+
+				chosen = rand() % storedPointers;
+				pointer = pointers[chosen];
+				pointers[chosen] = pointers[storedPointers-1];
+
+				storedPointers--;
+
+				myfree(pointer);
+			}
+
+			sum_largest_free += mem_largest_free();
+			sum_hole_size += (mem_free() / mem_holes());
+			sum_allocated += mem_allocated();
+			sum_small += mem_small_free(smallBlockSize);
+		}
+
+		clock_gettime(CLOCK_REALTIME, &execend);
+
+		//log = fopen("tests.log","a");
+		if(log == NULL) {
+		  perror("Can't append to log file.\n");
+		  return;
+		}
+		
+		fprintf(log,"\t=== %s ===\n",strategy_name(strategy));
+		fprintf(log,"\tTest took %.2fms.\n", (execend.tv_sec - execstart.tv_sec) * 1000 + (execend.tv_nsec - execstart.tv_nsec) / 1000000.0);
+		fprintf(log,"\tAverage hole size: %f\n",sum_hole_size/iterations);
+		fprintf(log,"\tAverage largest free block: %f\n",sum_largest_free/iterations);
+		fprintf(log,"\tAverage allocated bytes: %f\n",sum_allocated/iterations);
+		fprintf(log,"\tAverage number of small blocks: %f\n",sum_small/iterations);
+		fprintf(log,"\tFailed allocations: %d\n",failed_allocations);
+		fclose(log);
+
+
+	}
+}

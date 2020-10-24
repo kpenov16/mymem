@@ -51,7 +51,8 @@ void do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int m
 		int force_free = 0;
 		int i;
 		storedPointers = 0;
-
+		log = fopen("tests.log","a");
+		
 		initmem(strategy,totalSize);
 
 		clock_gettime(CLOCK_REALTIME, &execstart);
@@ -69,6 +70,11 @@ void do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int m
 					pointers[storedPointers++] = pointer;
 				else
 				{ 
+					fprintf(log,"\ntotalSize = %d, fillRatio = %.2f, minBlockSize = %d, maxBlockSize = %d, iterations = %d\n", totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
+					fprintf(log,"\nnewBlockSize = %d, i = %d\n", newBlockSize, i);
+					
+					print_memory_to_log(log);
+					
 					failed_allocations++;
 					force_free = 1;
 				}
@@ -101,7 +107,7 @@ void do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int m
 
 		clock_gettime(CLOCK_REALTIME, &execend);
 
-		log = fopen("tests.log","a");
+		//log = fopen("tests.log","a");
 		if(log == NULL) {
 		  perror("Can't append to log file.\n");
 		  return;
@@ -130,12 +136,12 @@ int do_stress_tests(int argc, char **argv)
 	do_randomized_test(strategy,10000,0.25,1,1000,10000);
 	do_randomized_test(strategy,10000,0.25,1,2000,10000);
 	do_randomized_test(strategy,10000,0.25,1000,2000,10000);
-	do_randomized_test(strategy,10000,0.25,1,3000,10000);
-	do_randomized_test(strategy,10000,0.25,1,4000,10000); 
-	do_randomized_test(strategy,10000,0.25,1,5000,10000);
+	do_randomized_test(strategy,10000,0.25,1,3000,10000); //
+	do_randomized_test(strategy,10000,0.25,1,4000,10000); //
+	do_randomized_test(strategy,10000,0.25,1,5000,10000); //
 
-	do_randomized_test(strategy,10000,0.5,1,1000,10000);
-	do_randomized_test(strategy,10000,0.5,1,2000,10000);
+	do_randomized_test(strategy,10000,0.5,1,1000,10000); //
+	do_randomized_test(strategy,10000,0.5,1,2000,10000); //
 	do_randomized_test(strategy,10000,0.5,1000,2000,10000);
 	do_randomized_test(strategy,10000,0.5,1,3000,10000); 
 	do_randomized_test(strategy,10000,0.5,1,4000,10000);

@@ -1,13 +1,19 @@
 #include <stddef.h>
 
-typedef enum strategies_enum
-{
-	NotSet = 0,
-	Best = 1,
-	Worst = 2,
-	First = 3,
-	Next = 4
-} strategies;
+//void do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int minBlockSize, int maxBlockSize, int iterations);
+
+#ifndef STRAT_ENUM
+	#define STRAT_ENUM
+	typedef enum strategies_enum
+	{
+		NotSet = 0,
+		Best = 1,
+		Worst = 2,
+		First = 3,
+		Next = 4
+	} strategies;
+#else
+#endif
 
 char *strategy_name(strategies strategy);
 strategies strategyFromString(char * strategy);
@@ -26,5 +32,6 @@ int mem_small_free(int size);
 char mem_is_alloc(void *ptr);
 void* mem_pool();
 void print_memory();
+void print_my_list_to_log(FILE *log);
 void print_memory_status();
 void try_mymem(int argc, char **argv);
