@@ -42,6 +42,7 @@ struct node
 };
 
 struct map_node{
+	int i;
 	char * ptr_start_prev;           // location of block in memory pool.
 	char * ptr_start_curr;           // location of block in memory pool.
 
@@ -50,6 +51,7 @@ struct map_node{
 	struct map_node *next;
 };
 static struct map_node *_map_head = NULL;
+static struct map_node *_map_tail = NULL;
 
 strategies _strategy = 0;    // Current strategy 
 
@@ -80,7 +82,135 @@ bool comp_will_do(size_t req_size){
 		return (_worst_node->size + next_worst->size) >= req_size;		
 	}	
 }
+
+bool needs_mapping(char * ptr_start_prev){
+	if(_map_head == NULL)
+		return false;
+	for (struct map_node* p = _map_head->next; p != NULL; p = p->next){
+		if(p->ptr_start_prev == ptr_start_prev)
+			return true;
+	}
+	return false;
+}
+
+char * get_mapping(char * ptr_start_prev){
+	for (struct map_node* p = _map_head->next; p != NULL; p = p->next){
+		if(p->ptr_start_prev == ptr_start_prev)
+			return p->ptr_start_curr;
+	}	
+	return NULL;
+}
+
+void remove_mapping(char * ptr_start_prev){
+	for (struct map_node* p = _map_head->next; p != NULL; p = p->next){
+		if(p->ptr_start_prev == ptr_start_prev){
+			if(p->prev != NULL){
+				p->prev->next = p->next;
+			}
+			if(p->next !=NULL ){
+				p->next->prev = p->prev;
+			}			
+			for (struct map_node* pp = pp->next; pp != NULL; pp = pp->next){
+				pp->i--;
+			}
+			free(p);
+			return;			
+		}
+	}	
+}
+
+bool is_mapped(char * ptr_start_curr){
+	if(_map_head == NULL)
+		return false;
+	for (struct map_node* p = _map_head->next; p != NULL; p = p->next){
+		if(p->ptr_start_curr == ptr_start_curr)
+			return true;
+	}
+	return false;
+}
+
 void compact(size_t req_size){
+	size_t total_freed = 0; 
+	for (struct node* p = _head; p != NULL; p = p->next){
+		if(p->is_free && p == _head && 
+		   p->next != NULL && p->next->is_free == false){
+			struct node * _old_head = _head; 
+			total_freed =+ _old_head->size;
+			
+			_head = _head->next;
+			free(_old_head);
+			_old_head = NULL;
+
+			_head->i = _head->i - 1;
+			if(_map_head == NULL){
+				_map_head = calloc(1, sizeof(struct map_node));
+				_map_head->ptr_start_prev = _head->ptr_start;
+				_map_head->ptr_start_curr = _head->ptr_start - total_freed;
+				_map_head->i = 0;
+
+				_map_tail = _map_head;				
+			}
+			
+			_head->ptr_start = _head->ptr_start - total_freed;
+			_head->prev = NULL;
+
+			for(struct node * pp = _head->next; pp != NULL; pp = pp->next){
+				if(pp->is_free){
+					//clients don't know the memory address
+					pp->i--;
+					pp->ptr_start = pp->ptr_start - total_freed;
+
+				}else{
+					//clients know the memory address 
+					//so we need to map the memory location
+					struct map_node * _map_tail_temp = _map_tail;
+					_map_tail->next = calloc(1, sizeof(struct map_node));				
+					_map_tail = _map_tail->next;
+					_map_tail->next = NULL;
+					_map_tail->prev = _map_tail_temp;
+
+					_map_tail->i = _map_tail_temp->i + 1;
+					_map_tail->ptr_start_prev = pp->ptr_start;
+					_map_tail->ptr_start_curr = pp->ptr_start - total_freed;					
+					
+					//modify the metadata for the nodes
+					pp->i = pp->i - 1;
+					pp->ptr_start = pp->ptr_start - total_freed;
+				}
+				
+			}
+
+			p = p->next;
+		}
+
+	}
+
+
+	//very basic solution
+	//just extend the tail if tail is free otherwise append  
+	if(total_freed > 0){
+		//find tail
+		struct node * tail = _head;
+		for(; tail != NULL; tail = tail->next){
+			if(tail->next == NULL){
+				break;
+			}
+		}
+		if(	tail->is_free ){ 
+			tail->size = tail->size + total_freed;
+			tail->ptr_start = tail->ptr_start - total_freed;
+		}else{
+			struct node * new_tail = calloc(1, sizeof(struct node));
+			tail->next = new_tail;
+			new_tail->prev = tail;
+			new_tail->next = NULL;
+			new_tail->i = tail->i + 1;
+			new_tail->is_free = true;
+			new_tail->size = total_freed;
+			new_tail->ptr_start = tail->ptr_start + tail->size;
+		}
+	}
+	
 	//map from 
 }
 
@@ -88,18 +218,17 @@ void * alloc_worst(size_t req_size){
 	if(_worst_node == NULL)
 		return NULL;	
 	else if(_worst_node->size < req_size){
-		/*compact();
-		for (struct node * p = _head; p != NULL; p = p->next){
-			
-		}
-		if(_worst_node->size >= req_size){
-			return alloc_worst(req_size);
-		}*/
-
+		
 		struct node * next_worst = getNextWorst();
 		if(next_worst != NULL && next_worst->size >= req_size){
 			//printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
 			_worst_node = next_worst;
+			return alloc_worst(req_size);
+		}
+		
+		
+		compact(req_size);
+		if(_worst_node->size >= req_size){
 			return alloc_worst(req_size);
 		}
 		/*if(comp_will_do(req_size)){
@@ -175,8 +304,13 @@ void * alloc_worst(size_t req_size){
 
 
 /* Frees a block of memory previously allocated by mymalloc. */
+void myfree(void * blk){
+	void * block = blk;
+	if(needs_mapping(blk)){
+		block = get_mapping(blk);
+		remove_mapping(blk);
+	}
 
-void myfree(void * block){
 	struct node * node_to_del = UNIT_TEST ? (struct node *)block : get_p_to_mem_in_list(block); 
 	if(node_to_del->size == _main_mem_size_total){
 		node_to_del->is_free = true;
@@ -466,6 +600,12 @@ void initmem(strategies strategy, size_t size){
 	while (_head != NULL){
 		void * tmp = _head;
 		_head = _head->next;
+		free(tmp);
+		tmp = NULL; //make it a habit
+	}
+	while (_map_head != NULL){
+		void * tmp = _map_head;
+		_map_head = _map_head->next;
 		free(tmp);
 		tmp = NULL; //make it a habit
 	}
@@ -811,6 +951,13 @@ void print_my_list(){
 				p->is_free?"true":"false", 
 				p->size,
 				p->ptr_start,//&p->ptr_start,
+				p->i);
+
+	printf("\n_map_node:\n");
+	for(struct map_node * p = _map_head; p != NULL; p = p->next)
+		printf("\nptr_start_curr = %p, p->ptr_start_prev = %p, i = %d\n", 
+				p->ptr_start_curr,
+				p->ptr_start_prev,
 				p->i);
 }
 
@@ -2249,13 +2396,52 @@ void givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSati
 }
 
 
+void givenCompactionRequested_returnCompacted(){
+	//setup
+	strategies strat = Worst;
+	int block_size = 500;		
+	initmem(strat, block_size);
+
+	int req_size01 = 100; 
+	int req_size02 = 50; 
+	int req_size03 = 175;
+	int req_size04 = 25;
+	
+	char * node01_loc = (char *)mymalloc(req_size01);
+	char * node02_loc = (char *)mymalloc(req_size02);
+	char * node03_loc = (char *)mymalloc(req_size03);
+	char * node04_loc = (char *)mymalloc(req_size04);
+	
+	myfree(node01_loc);
+
+	printf("\n%s\n","After Setup");
+	print_my_list();
+
+
+	char * node05_loc = (char *)mymalloc(200);
+
+	//compact(200);
+	
+	printf("\n%s\n","After Compaction");
+	print_my_list();
+
+
+	printf("\n%s%p\n","After freeing mapped memory = ", node03_loc);
+
+	myfree(node03_loc);
+
+	printf("\n%s\n","After freeing mapped memory");
+	print_my_list();
+}
+
 int main2(){
 	//givenCreate10EqualBlocksAndFreeEverySecond_returnCorrectLocationsToFreedBlocksInMemory();
 	
 	if(UNIT_TEST){
+		//givenCompactionRequested_returnCompacted();
 		//givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest();
 		//last_test_main_loop()();
-
+		/*
 		givenFreeBlockAndPointerInIt_returnBlockIsFree();
 		givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
 
@@ -2301,7 +2487,7 @@ int main2(){
 		givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
 		givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 		givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
-		
+		*/		
 	}else
 	{
 	//do_randomized_test(strategyToUse, totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
