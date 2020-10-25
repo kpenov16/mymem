@@ -70,10 +70,10 @@ void do_randomized_test(int strategyToUse, int totalSize, float fillRatio, int m
 					pointers[storedPointers++] = pointer;
 				else
 				{ 
-					fprintf(log,"\ntotalSize = %d, fillRatio = %.2f, minBlockSize = %d, maxBlockSize = %d, iterations = %d\n", totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
-					fprintf(log,"\nnewBlockSize = %d, i = %d\n", newBlockSize, i);
+					//fprintf(log,"\ntotalSize = %d, fillRatio = %.2f, minBlockSize = %d, maxBlockSize = %d, iterations = %d\n", totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
+					//fprintf(log,"\nnewBlockSize = %d, i = %d\n", newBlockSize, i);
 					
-					print_memory_to_log(log);
+					//print_memory_to_log(log);
 					
 					failed_allocations++;
 					force_free = 1;
@@ -344,9 +344,9 @@ int test_alloc_3(int argc, char **argv) {
 			myfree(mem_pool() + i);
 			ii=i;
 		}
-		print_memory();
-		printf("\nii = %d\n", ii);
-		printf("\nlast p = %p\n", (char *)mem_pool() + ii);
+		//print_memory();
+		//printf("\nii = %d\n", ii);
+		//printf("\nlast p = %p\n", (char *)mem_pool() + ii);
 		if (mem_holes() != correct_holes)
 		{
 			printf("Holes not counted as %d with %s\n", correct_holes, strategy_name(strategy));

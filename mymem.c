@@ -6,7 +6,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-//to run the tests in this file you need to
+//to run my custom tests found in this file you need to
 //change main2 to main
 //in the console run: gcc mymem.c && ./a.out
 //UNIT_TEST 0 -> will run the original unit tests, use 'less tests.log' to see the output 
@@ -217,8 +217,9 @@ void compact(size_t req_size){
 void * alloc_worst(size_t req_size){
 	if(_worst_node == NULL)
 		return NULL;	
-	else if(_worst_node->size < req_size){
-		
+	else if(_worst_node->size < req_size){ 
+		//this is a kind of work around, if f.eks. the current worst is not good enought but there is a new worst node    
+		//we just find the new worst 
 		struct node * next_worst = getNextWorst();
 		if(next_worst != NULL && next_worst->size >= req_size){
 			//printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
@@ -226,48 +227,47 @@ void * alloc_worst(size_t req_size){
 			return alloc_worst(req_size);
 		}
 		
-		
-		compact(req_size);
+		//this compaction is very primive, it will only work on one of the basic scenario
+		//when the first node is free and when compaction is required f.eks. 5 size is required the max is 3 but there is another free block of size 2
+		//but shows how to implement compaction and can be extened for the other scenario
+		compact(req_size); 
 		if(_worst_node->size >= req_size){
 			return alloc_worst(req_size);
 		}
-		/*if(comp_will_do(req_size)){
-			compact(req_size);
-			return alloc_worst(req_size);
-		}*/
 		return NULL;	
 	}else{
-		if(_worst_node->size == req_size){ //exact size as the size of the worst node 
+		//there are different situations we need to cover 
+		//it is possible that there is duplications :( and refactoring is required 
+		if(_worst_node->size == req_size){   //requested size is exactly the size of the worst
 			if(_worst_node->prev == NULL){
-				_worst_node->i = 0;
+				_worst_node->i = 0;                       //I keep updated index for debugging
 			}else{
 				_worst_node->i = _worst_node->prev->i + 1;
 			}
 			_worst_node->is_free = false;
 			struct node * tmp = _worst_node;
 
-			struct node * next_worst = getNextWorst();
+			struct node * next_worst = getNextWorst(); //we need new worst if any
 			if(next_worst != NULL && next_worst->size >= req_size){
 				_worst_node = next_worst;
 			}else{
 				_worst_node = NULL;
 			}		
-			return UNIT_TEST ? (void *)tmp : (void *)tmp->ptr_start;			
-		}else if(_worst_node->size > req_size){
+			return UNIT_TEST ? (void *)tmp : (void *)tmp->ptr_start; //my custom tests use the linked list but the real world uses the memory locations			
+		}else if(_worst_node->size > req_size){   //there is space in the worst for the requested size
 
 			struct node * new_node = NULL;
 			while (new_node == NULL){
-				new_node = calloc(1, sizeof(struct node) );
+				new_node = calloc(1, sizeof(struct node) ); //left overs from the time I belived there was no space left - this is not the case and this is a bad way to implement it 
 			}
-			
-			calloc(1, sizeof(struct node) );
-			
+			//init the new node			
 			new_node->size = req_size;
 			new_node->is_free = false;	
 			new_node->ptr_start = _worst_node->ptr_start;
 			new_node->next = _worst_node;
 			new_node->prev = _worst_node->prev;
 			
+			//insert the new node and update the worst
 			if(_worst_node->prev == NULL){
 				new_node->i = 0; 
 				_worst_node->i = 1;
@@ -288,40 +288,49 @@ void * alloc_worst(size_t req_size){
 				_worst_node->ptr_start = _worst_node->ptr_start + req_size;
 			}
 			for(struct node * p = _worst_node->next; p != NULL; p = p->next){
-				p->i += 1;
+				p->i += 1; //update the index after the insertion
 			}
+			//we need to update the new worst node if that has changed
 			struct node * next_worst = getNextWorst();
 			if(next_worst != NULL && next_worst->size > _worst_node->size){
 				_worst_node = next_worst;
 			}
-			return UNIT_TEST ? (void *)new_node : (void *)new_node->ptr_start;
+			return UNIT_TEST ? (void *)new_node : (void *)new_node->ptr_start; //my custom tests use the linked list but the real world uses the memory locations
 		}
 	} 
 }
 
-
-
-
-
 /* Frees a block of memory previously allocated by mymalloc. */
 void myfree(void * blk){
+	//the clients will try to free based on the location in memory of the block returned by myalloc
+	//well when we compact to make space for bigger blocks we actually 'move' the locations
+	//so to find the current locations we use a map (simple linked list) to map current to original locations
 	void * block = blk;
-	if(needs_mapping(blk)){
+	if(needs_mapping(blk)){ 
 		block = get_mapping(blk);
 		remove_mapping(blk);
 	}
-
+	//as the code works with the linked list we need a reference to the node that is requested to be freed
 	struct node * node_to_del = UNIT_TEST ? (struct node *)block : get_p_to_mem_in_list(block); 
-	if(node_to_del->size == _main_mem_size_total){
+
+
+	//here we go over all the possible freeing scenarios 
+	//most of them can possibly be generalized by refactoring
+
+	if(node_to_del->size == _main_mem_size_total){ 
 		node_to_del->is_free = true;
 		_worst_node = _head;
 		return;
 	}
 
+	//here we merge the block to be deleted with the one on the right (next) and the one on the left (prev)
+	//as they are free
+	//we remember to update which block is the worst 
 	if(node_to_del->prev != NULL &&
 	   node_to_del->prev->is_free == true && 
 	   node_to_del->next != NULL &&
 	   node_to_del->next->is_free == true){
+	
 		int size_freed = node_to_del->prev->size + node_to_del->size + node_to_del->next->size;
 		if(node_to_del->prev == _worst_node){
 			_worst_node->size = size_freed;
@@ -375,6 +384,8 @@ void myfree(void * blk){
 		return;
 	}
 
+	//here we merge the block to be deleted with the one of the right (next)
+	//we remember to update which block is the worst 
 	if(node_to_del->prev != NULL &&
 	   node_to_del->prev->is_free == false && 
 	   node_to_del->next != NULL &&
@@ -399,6 +410,8 @@ void myfree(void * blk){
 		return;
 	}
 
+	//here we merge the block to be deleted with the one of the left (prev)
+	//we remember to update which block is the worst 
 	if(node_to_del->prev != NULL &&
 	   node_to_del->prev->is_free == true && 
 	   node_to_del->next != NULL &&
@@ -422,6 +435,8 @@ void myfree(void * blk){
 		return;
 	}
 
+	//hm I am kind of writing the comments after I wrote the code and now I don't think this is needed
+	//But I will keep it here anyhow nor now
 	if(node_to_del->prev != NULL && 
 	   node_to_del->prev == _worst_node){
 
@@ -435,6 +450,9 @@ void myfree(void * blk){
 		return;
 	}
 
+	//some more special situations I was writing tests for
+	//we free for the first time after all memory was allocated last time
+	//we free in the end
 	if(node_to_del->prev != NULL &&
 	   node_to_del->prev->is_free == false && 
 	   node_to_del->next == NULL &&
@@ -445,6 +463,7 @@ void myfree(void * blk){
 		return;
 	}
 
+	//we free at the end and there is a worst node
 	if(node_to_del->prev != NULL &&
 	   node_to_del->prev->is_free == false && 
 	   node_to_del->next == NULL &&
@@ -453,12 +472,10 @@ void myfree(void * blk){
 			_worst_node = node_to_del;
 		}	
 		node_to_del->is_free = true;
-		//TODO: make test first and make it pass, refactor - done
-		//TODO: refactor all tests to match the new requirement:  myalloc() should return the address of the position in the memory block not pointer to the list  
 		return;
 	}
 
-
+	//free in the middle when there is no worst
 	if(node_to_del->prev != NULL && 
 	   node_to_del->prev->is_free == false && 
 	   node_to_del->next != NULL &&
@@ -470,6 +487,8 @@ void myfree(void * blk){
 		return;
 	}
 
+	//free in the middle when there is a worst
+	//left and ringt nodes are not free
 	if(node_to_del->prev != NULL && 
 	   node_to_del->prev->is_free == false && 
 	   node_to_del->next != NULL &&
@@ -481,7 +500,8 @@ void myfree(void * blk){
 		node_to_del->is_free = true;
 		return;
 	}
-
+	
+	//freeing at the head when the next is worst, TODO: refectoring please ...
 	if(node_to_del->prev == NULL && 
 	   node_to_del->next != NULL && node_to_del->next == _worst_node){
 		
@@ -499,6 +519,7 @@ void myfree(void * blk){
 		return;
 	}
 
+	//free the head when the right is free
 	if(node_to_del->prev == NULL && 
 	   node_to_del->next != NULL && 
 	   node_to_del->next->is_free == true){
@@ -528,6 +549,7 @@ void myfree(void * blk){
 		return;
 	}
 
+	//free the head when the right is not free
 	if(node_to_del->prev == NULL && 
 	   node_to_del->next != NULL && 
 	   node_to_del->next->is_free == false){
@@ -549,13 +571,6 @@ void myfree(void * blk){
 		return;
 	}
 
-
-
-
-
-	//if (_main_mem != NULL) free(_main_mem); /* in case this is not the first time initmem2 is called */
-
-	/* TODO: release any other memory you were using for bookkeeping when doing a re-initialization! */
 	return;
 }
 
@@ -597,22 +612,26 @@ void initmem(strategies strategy, size_t size){
 		_main_mem = NULL;
 	} 
 	/* Release any other memory you were using for bookkeeping when doing a re-initialization! */
+	//free the metadata for the memory blocks - the linked list
 	while (_head != NULL){
 		void * tmp = _head;
 		_head = _head->next;
 		free(tmp);
 		tmp = NULL; //make it a habit
 	}
+
+	//free the mapping list for memory locations 
 	while (_map_head != NULL){
 		void * tmp = _map_head;
 		_map_head = _map_head->next;
 		free(tmp);
-		tmp = NULL; //make it a habit
+		tmp = NULL; 
 	}
 		
 	/* Initialize memory management structure. */
 	_main_mem = (char *)calloc(size, sizeof(char));
 				
+	//I start with the full size as the worst node
 	_head = calloc(1, sizeof(struct node));
 	_head->i = 0;
 	_head->is_free = true;
@@ -850,15 +869,43 @@ void try_mymem(int argc, char **argv) {
 	
 }
 
+void print_my_list(){
+	printf("\n_memory starts = %p\n", &_main_mem);
+	for(struct node * p = _head; p != NULL; p = p->next)
+		printf("\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
+				p->is_free?"true":"false", 
+				p->size,
+				p->ptr_start,//&p->ptr_start,
+				p->i);
 
-
-
-void d(int req_size){
-	struct node * next_worst = getNextWorst();
-		if(next_worst != NULL && next_worst->size > (_worst_node->size - req_size)){
-			printf("\n%s\n", "getNextWorst()->size > (_worst_node->size - req_size)");
-		}
+	printf("\n_map_node:\n");
+	for(struct map_node * p = _map_head; p != NULL; p = p->next)
+		printf("\nptr_start_curr = %p, p->ptr_start_prev = %p, i = %d\n", 
+				p->ptr_start_curr,
+				p->ptr_start_prev,
+				p->i);
 }
+
+void print_my_list_to_log(FILE *log){
+	fprintf(log,"\n_memory starts = %p\n", &_main_mem);
+	for(struct node * p = _head; p != NULL; p = p->next)
+		fprintf(log,"\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
+				p->is_free?"true":"false", 
+				p->size,
+				p->ptr_start,//&p->ptr_start,
+				p->i);
+}
+
+//#######################################################################################
+//################## If you whan to see my custom tests then look down ##################
+//#######################################################################################
+//to run my custom tests found in this file you need to
+//change main2 to main
+//in the console run: gcc mymem.c && ./a.out
+//UNIT_TEST 0 -> will run the original unit tests, use 'less tests.log' to see the output 
+//UNIT_TEST 1 -> will run my unit tests, no output means that everything works 
+				//at least after my tests, one test is not working: givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest() 
+				//as the compaction of scattered freed blocks is not implemented 
 
 void givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated(){
 	//setup
@@ -942,33 +989,6 @@ void givenRequestMoemoryLessThanTheAvailable_returnTheNodeAndWorstNodeIsNULL(){
 	assert( _worst_node != NULL && "_worst_node != NULL");
     assert( _worst_node->prev == node_req && "_worst_node->prev == node_req");
 	assert( _worst_node->size == block_size - req_size && "_worst_node->size == block_size - req_size");
-}
-
-void print_my_list(){
-	printf("\n_memory starts = %p\n", &_main_mem);
-	for(struct node * p = _head; p != NULL; p = p->next)
-		printf("\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
-				p->is_free?"true":"false", 
-				p->size,
-				p->ptr_start,//&p->ptr_start,
-				p->i);
-
-	printf("\n_map_node:\n");
-	for(struct map_node * p = _map_head; p != NULL; p = p->next)
-		printf("\nptr_start_curr = %p, p->ptr_start_prev = %p, i = %d\n", 
-				p->ptr_start_curr,
-				p->ptr_start_prev,
-				p->i);
-}
-
-void print_my_list_to_log(FILE *log){
-	fprintf(log,"\n_memory starts = %p\n", &_main_mem);
-	for(struct node * p = _head; p != NULL; p = p->next)
-		fprintf(log,"\nnode: is_free = %s, size = %d, ptr_start = %p, i = %d\n", 
-				p->is_free?"true":"false", 
-				p->size,
-				p->ptr_start,//&p->ptr_start,
-				p->i);
 }
 
 void given2BlocksRequestedOfTotalSizeOfTheTotalMemory_return2NodesCreatedWithNoFreeSpaceInMemory(){
@@ -2441,7 +2461,7 @@ int main2(){
 		//givenCompactionRequested_returnCompacted();
 		//givenScatteredFreeBlocksInTotalSizeBiggerThanRequested_returnCompactAndSatisfyTheRequest();
 		//last_test_main_loop()();
-		/*
+		
 		givenFreeBlockAndPointerInIt_returnBlockIsFree();
 		givenAlocatedBlockAndPointerInIt_returnBlockIsAlocated();
 
@@ -2487,7 +2507,7 @@ int main2(){
 		givenAnyBlockIsRequestedWhenNoSpaceInMemory_returnNULL();
 		givenBlockSizeIsMaxRequested_returnNodeMaxSize();
 		givenInitMemoryWithSize_returnEmptyBlockWithSizeAlocated();
-		*/		
+				
 	}else
 	{
 	//do_randomized_test(strategyToUse, totalSize, fillRatio, minBlockSize, maxBlockSize, iterations);
